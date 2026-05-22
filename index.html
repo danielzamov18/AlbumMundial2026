@@ -6,7 +6,6 @@
     <title>Álbum Virtual - Mundial 2026</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -979,87 +978,97 @@
                 document.getElementById('scan-line-anim').classList.add('hidden');
                 // Apagar flash después de capturar si estaba encendido
                 apagaFlash();
-                analizarImagen(base64, dataUrl);
+                analizarImagenIA(base64, dataUrl);
             }, 800);
         };
 
         // =============================================
-        // ESCÁNER OCR REAL - MODO CARGA RÁPIDA (Detecta País)
+        // ESCÁNER IA - CONEXIÓN REAL A GEMINI
         // =============================================
-        async function analizarImagen(base64, dataUrl) {
+        
+        const GEMINI_API_KEY = "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc"; 
+        
+        async function analizarImagenIA(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
             const statusText = document.getElementById('processing-status');
             const subText = document.getElementById('processing-sub');
             
+            if (GEMINI_API_KEY === "AQUI_TU_API_KEY" || GEMINI_API_KEY === "") {
+                UI.showModal("Falta API Key", "Por favor, pon tu API Key de Gemini en el código para usar la IA.");
+                return;
+            }
+
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            statusText.textContent = 'Buscando país...';
-            subText.textContent = 'Analizando título de la página';
+            statusText.textContent = 'Analizando con IA...';
+            subText.textContent = 'Buscando figuras pegadas en la foto';
 
             capturedImageBase64 = dataUrl;
 
             try {
-                // Ejecutar Tesseract sobre la imagen capturada
-                const resultOcr = await Tesseract.recognize(
-                    dataUrl,
-                    'eng', // Inglés es más rápido para mayúsculas
-                    {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                const progress = Math.round(m.progress * 100);
-                                subText.textContent = `Extrayendo texto: ${progress}%`;
-                            }
+                const prompt = `Eres un asistente experto analizando páginas del álbum del Mundial.
+Analiza la foto adjunta y determina:
+1. El código de 3 letras del país (ej. ARG, BRA, MEX). Si es Coca-Cola usa CC, si es FIFA usa FWC.
+2. Identifica qué números de casillas (del 1 al 20) TIENEN una figura pegada encima.
+3. Identifica qué números de casillas están VACÍOS.
+Responde estrictamente en formato JSON sin texto extra. Formato:
+{
+  "equipo": "ARG",
+  "pegados": [1, 3, 5],
+  "vacios": [2, 4, 6]
+}`;
+
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inline_data: { mime_type: "image/jpeg", data: base64 } }
+                            ]
+                        }],
+                        generationConfig: {
+                            response_mime_type: "application/json", // Fuerza a la IA a devolver un JSON perfecto
+                            temperature: 0.1
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Error de conexión con la IA (${response.status})`);
+
+                const data = await response.json();
+                const jsonString = data.candidates[0].content.parts[0].text;
+                const result = JSON.parse(jsonString);
+
+                // Validamos que el equipo exista
+                let equipoDetectado = TEAMS_MAP[result.equipo];
+                
+                // Si la IA se equivoca un poco con el código, buscamos coincidencias
+                if (!equipoDetectado) {
+                    for (const id in TEAMS_MAP) {
+                        if (id.includes(result.equipo) || result.equipo.includes(id)) {
+                            equipoDetectado = TEAMS_MAP[id]; break;
                         }
                     }
-                );
-
-                const textoExtraido = resultOcr.data.text.toUpperCase();
-                console.log("Texto detectado por OCR:\n", textoExtraido);
-
-                let equipoDetectado = null;
-
-                // 1. Buscar por nombre completo del país (Más confiable desde lejos)
-                for (const [id, team] of Object.entries(TEAMS_MAP)) {
-                    // Quitamos tildes para evitar errores de OCR
-                    const nombreLimpio = team.name.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    const textoLimpio = textoExtraido.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    
-                    if (textoLimpio.includes(nombreLimpio)) {
-                        equipoDetectado = team;
-                        break;
-                    }
                 }
 
-                // 2. Si no encontró el nombre largo, buscar por código de 3 letras (ej: ARG)
-                if (!equipoDetectado) {
-                    const palabras = textoExtraido.split(/\W+/); 
-                    for (const palabra of palabras) {
-                        if (palabra.length >= 2 && TEAMS_MAP[palabra]) {
-                            equipoDetectado = TEAMS_MAP[palabra];
-                            break;
-                        }
-                    }
-                }
-
-                if (!equipoDetectado) {
-                    throw new Error("No pude identificar de qué país es la página. Asegúrate de enfocar bien el título grande (ej: ARGENTINA o ARG).");
-                }
+                if (!equipoDetectado) throw new Error("La IA no pudo identificar de qué país es la página.");
 
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
-
-                // Enviar resultados a la UI
-                mostrarResultadosEscaner(equipoDetectado, dataUrl);
+                
+                mostrarResultadosEscaner(equipoDetectado, result.pegados, dataUrl);
 
             } catch (err) {
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
-                console.error("Error en OCR:", err);
-                UI.showModal("Lectura fallida", err.message || "No se pudo extraer texto. Intenta con mejor iluminación y enfoca el título del equipo.");
+                console.error("Error en IA:", err);
+                UI.showModal("Lectura fallida", err.message || "La IA no pudo entender la imagen. Intenta mejorar la iluminación.");
             }
         }
 
-        function mostrarResultadosEscaner(equipo, imageDataUrl) {
+        function mostrarResultadosEscaner(equipo, pegadosDetectados, imageDataUrl) {
             document.getElementById('scanner-step-camera').classList.add('hidden');
             document.getElementById('scanner-step-results').classList.remove('hidden');
             if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
@@ -1069,19 +1078,19 @@
 
             const limit = equipo.count || STICKERS_PER_TEAM;
             
-            // Estado global temporal para esta captura
-            pendingScanResults = {
-                equipo: equipo,
-                seleccionados: new Set()
-            };
+            pendingScanResults = { equipo: equipo, seleccionados: new Set() };
 
-            // Pre-seleccionar todas por defecto (asumimos que quiere guardar la página completa menos las que falten)
-            for (let i = 1; i <= limit; i++) {
-                pendingScanResults.seleccionados.add(i);
-            }
+            // Añadir las que la IA detectó como pegadas
+            pegadosDetectados.forEach(num => {
+                if (num >= 1 && num <= limit) pendingScanResults.seleccionados.add(num);
+            });
 
             const listContainer = document.getElementById('scan-results-list');
             listContainer.innerHTML = `
+                <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
+                    <i class="fas fa-robot text-brand-500 mr-1"></i>
+                    <strong>IA completada:</strong> Revisa que la IA haya acertado. Toca los números para corregir.
+                </div>
                 <div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>
             `;
 
@@ -1089,17 +1098,21 @@
             
             for (let i = 1; i <= limit; i++) {
                 const btn = document.createElement('button');
-                // Estilo inicial: Seleccionado (Verde)
-                btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                
+                // Si la IA lo detectó, va verde. Si no, va gris.
+                if (pendingScanResults.seleccionados.has(i)) {
+                    btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                } else {
+                    btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 border-2 border-slate-700';
+                }
+                
                 btn.textContent = i;
 
                 btn.onclick = () => {
                     if (pendingScanResults.seleccionados.has(i)) {
-                        // Desmarcar (Gris) -> El usuario dice "Esta me falta"
                         pendingScanResults.seleccionados.delete(i);
                         btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 border-2 border-slate-700';
                     } else {
-                        // Volver a marcar (Verde) -> El usuario dice "Ah no, sí la tengo"
                         pendingScanResults.seleccionados.add(i);
                         btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
                     }
@@ -1109,21 +1122,6 @@
             }
 
             actualizarBotonConfirmar();
-        }
-
-        function actualizarBotonConfirmar() {
-            const confirmBtn = document.getElementById('btn-confirm-scan');
-            const cantidad = pendingScanResults.seleccionados.size;
-            
-            if (cantidad === 0) {
-                confirmBtn.disabled = true;
-                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                confirmBtn.innerHTML = 'Ninguna seleccionada';
-            } else {
-                confirmBtn.disabled = false;
-                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                confirmBtn.innerHTML = `<i class="fas fa-check mr-2"></i>Guardar ${cantidad} pegadas`;
-            }
         }
 
         window.descartarResultados = async () => {
