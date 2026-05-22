@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Álbum Virtual - Mundial 2026</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tesseract.js para el escáner de imágenes OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            900: '#14532d',
+                            gold: '#fbbf24',
+                            dark: '#0f172a',
+                            panel: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .sticker-btn {
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+        
+        .sticker-btn:active {
+            transform: scale(0.9);
+        }
+
+        .sticker-missing {
+            background: #334155;
+            color: #64748b;
+            border: 2px dashed #475569;
+        }
+
+        .sticker-obtained {
+            background: #3b82f6;
+            color: white;
+            border: 2px solid #2563eb;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .sticker-repeated {
+            background: #10b981;
+            color: white;
+            border: 2px solid #059669;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-repeated {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 2px solid #0f172a;
+        }
+        
+        /* Animaciones suaves */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+    <!-- Modal personalizado (Reemplazo de alert/confirm) -->
+    <div id="custom-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="bg-brand-panel border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl transform scale-95 transition-transform duration-200" id="modal-content">
+            <h3 id="modal-title" class="text-xl font-bold mb-2 text-white">Título</h3>
+            <p id="modal-message" class="text-slate-300 mb-6 text-sm">Mensaje</p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-btn-cancel" class="hidden px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:bg-slate-700 transition">Cancelar</button>
+                <button id="modal-btn-ok" class="px-4 py-2 rounded-lg text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white transition">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Autenticación -->
+    <div id="auth-screen" class="flex-1 flex items-center justify-center p-4 fade-in">
+        <div class="w-full max-w-md bg-brand-panel p-8 rounded-3xl shadow-xl border border-slate-800">
+            <div class="text-center mb-8">
+                <i class="fas fa-trophy text-brand-gold text-5xl mb-4 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]"></i>
+                <h1 class="text-3xl font-black text-white tracking-tight">Mundial <span class="text-brand-500">2026</span></h1>
+                <p class="text-slate-400 mt-2 text-sm">Gestiona tu álbum virtual en la nube</p>
+            </div>
+
+            <div id="auth-forms">
+                <!-- Formulario de Iniciar Sesión -->
+                <form id="login-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Usuario</label>
+                        <input type="text" id="login-username" class="w-full bg-slate-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500 border border-slate-700 transition lowercase" placeholder="ej: mario123" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Contraseña</label>
+                        <input type="password" id="login-password" class="w-full bg-slate-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500 border border-slate-700 transition" required>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex justify-center items-center">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Iniciar Sesión
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">
+                        ¿No tienes cuenta? <a href="#" id="show-register" class="text-brand-500 font-bold hover:underline">Regístrate</a>
+                    </p>
+                </form>
+
+                <!-- Formulario de Registro -->
+                <form id="register-form" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Usuario</label>
+                        <input type="text" id="reg-username" class="w-full bg-slate-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500 border border-slate-700 transition lowercase" placeholder="ej: mario123" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Contraseña</label>
+                        <input type="password" id="reg-password" class="w-full bg-slate-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500 border border-slate-700 transition" required minlength="6" placeholder="Mínimo 6 caracteres">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Confirmar Contraseña</label>
+                        <input type="password" id="reg-confirm" class="w-full bg-slate-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500 border border-slate-700 transition" required minlength="6">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex justify-center items-center">
+                        <i class="fas fa-user-plus mr-2"></i> Crear Cuenta
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">
+                        ¿Ya tienes cuenta? <a href="#" id="show-login" class="text-brand-500 font-bold hover:underline">Inicia Sesión</a>
+                    </p>
+                </form>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-slate-700 text-center">
+                <button id="btn-anonymous" class="text-sm text-slate-400 hover:text-white transition pb-1 border-b border-dashed border-slate-500">
+                    Continuar como Invitado (Sólo lectura local)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Principal -->
+    <div id="app-screen" class="hidden flex-col h-screen overflow-hidden">
+        
+        <!-- Header -->
+        <header class="bg-brand-panel border-b border-slate-800 z-10 p-4 sticky top-0 shadow-md">
+            <div class="max-w-5xl mx-auto flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-book-open text-brand-500 text-xl"></i>
+                    <h1 class="text-lg font-bold">FIFA 2026</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="user-display" class="text-xs text-slate-400 truncate max-w-[100px] md:max-w-xs"></span>
+                    <button id="btn-logout" class="text-slate-400 hover:text-red-400 transition" title="Cerrar sesión">
+                        <i class="fas fa-sign-out-alt text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navegación por Pestañas -->
+        <nav class="bg-slate-900 border-b border-slate-800 p-2 flex justify-center space-x-2 md:space-x-8 overflow-x-auto hide-scrollbar shrink-0">
+            <button class="tab-btn active px-4 py-2 rounded-full text-sm font-semibold transition bg-brand-600 text-white" data-target="view-album">
+                <i class="fas fa-layer-group mr-1"></i> Mi Álbum
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-full text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-800" data-target="view-stats">
+                <i class="fas fa-chart-pie mr-1"></i> Stats
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-full text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-800" data-target="view-share">
+                <i class="fas fa-share-alt mr-1"></i> Compartir
+            </button>
+        </nav>
+
+        <!-- Contenido Principal Desplazable -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 relative" id="main-scroll">
+            <div class="max-w-5xl mx-auto h-full relative">
+                
+                <!-- Vista: Álbum -->
+                <div id="view-album" class="view-section fade-in block">
+                    <!-- Buscador y Filtros -->
+                    <div class="sticky -top-4 md:-top-6 bg-[#0f172a] pt-4 md:pt-6 pb-4 z-30 shadow-[0_10px_20px_-5px_rgba(15,23,42,1)] border-b border-slate-800 mb-6 -mx-4 px-4 md:-mx-6 md:px-6">
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-brand-500 text-lg group-focus-within:text-brand-400 transition-colors"></i>
+                            </div>
+                            <input type="text" id="search-input" placeholder="Buscar país, código o número (ej: ARG, 10)..." class="w-full bg-slate-800/80 backdrop-blur-sm text-white rounded-full pl-12 pr-12 py-3 outline-none border border-slate-700 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/50 shadow-lg text-sm transition-all">
+                            <button id="clear-search" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white hidden transition-colors">
+                                <i class="fas fa-times-circle text-lg"></i>
+                            </button>
+                        </div>
+                        <!-- Info de interacciones -->
+                        <div class="text-center mt-3 text-xs text-slate-500 font-medium tracking-wide">
+                            <span class="inline-block mx-2"><i class="fas fa-hand-pointer mr-1"></i> Click = Añadir</span>
+                            <span class="inline-block mx-2"><i class="fas fa-stopwatch mr-1"></i> Mantener = Quitar</span>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor del Álbum Generado Dinámicamente -->
+                    <div id="album-container" class="space-y-10">
+                        <!-- El JS inyectará las selecciones aquí -->
+                        <div class="text-center py-20 text-slate-500" id="album-loading">
+                            <i class="fas fa-circle-notch fa-spin text-4xl mb-4 text-brand-500"></i>
+                            <p>Cargando datos del Mundial...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vista: Estadísticas -->
+                <div id="view-stats" class="view-section hidden fade-in">
+                    <h2 class="text-2xl font-bold mb-6 text-white border-b border-slate-800 pb-2">Progreso General</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="bg-brand-panel p-6 rounded-2xl border border-slate-800 text-center shadow-lg relative overflow-hidden">
+                            <div class="absolute inset-0 bg-blue-500/10"></div>
+                            <p class="text-slate-400 text-sm font-semibold uppercase tracking-wider relative z-10">Completado</p>
+                            <p class="text-4xl font-black text-white mt-2 relative z-10" id="stat-percent">0%</p>
+                        </div>
+                        <div class="bg-brand-panel p-6 rounded-2xl border border-slate-800 text-center shadow-lg">
+                            <p class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Pegadas</p>
+                            <p class="text-3xl font-bold text-blue-400 mt-2" id="stat-obtained">0 <span class="text-sm text-slate-500 font-normal">/ 0</span></p>
+                        </div>
+                        <div class="bg-brand-panel p-6 rounded-2xl border border-slate-800 text-center shadow-lg">
+                            <p class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Repetidas totales</p>
+                            <p class="text-3xl font-bold text-green-400 mt-2" id="stat-repeated">0</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-bold mb-4 text-white">Por Grupo</h3>
+                    <div id="stats-groups" class="space-y-4">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+
+                <!-- Vista: Compartir -->
+                <div id="view-share" class="view-section hidden fade-in">
+                    <h2 class="text-2xl font-bold mb-6 text-white border-b border-slate-800 pb-2">Intercambio</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Genera listas listas para enviar por WhatsApp o redes sociales.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Repetidas -->
+                        <div class="bg-brand-panel p-5 rounded-2xl border border-slate-800 flex flex-col h-[400px]">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-green-400 flex items-center"><i class="fas fa-clone mr-2"></i> Mis Repetidas</h3>
+                                <button onclick="copyToClipboard('text-repeated')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition" title="Copiar">
+                                    <i class="fas fa-copy text-white"></i>
+                                </button>
+                            </div>
+                            <textarea id="text-repeated" class="w-full flex-1 bg-slate-900 text-sm font-mono text-slate-300 p-4 rounded-xl border border-slate-700 outline-none resize-none hide-scrollbar" readonly></textarea>
+                        </div>
+
+                        <!-- Faltantes -->
+                        <div class="bg-brand-panel p-5 rounded-2xl border border-slate-800 flex flex-col h-[400px]">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-red-400 flex items-center"><i class="fas fa-search-plus mr-2"></i> Me Faltan</h3>
+                                <button onclick="copyToClipboard('text-missing')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition" title="Copiar">
+                                    <i class="fas fa-copy text-white"></i>
+                                </button>
+                            </div>
+                            <textarea id="text-missing" class="w-full flex-1 bg-slate-900 text-sm font-mono text-slate-300 p-4 rounded-xl border border-slate-700 outline-none resize-none hide-scrollbar" readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Botón Flotante para Escáner -->
+        <button onclick="abrirScanner()" class="fixed bottom-6 right-6 bg-brand-500 hover:bg-brand-400 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] flex items-center justify-center text-xl transition-transform active:scale-90 z-40">
+            <i class="fas fa-camera"></i>
+        </button>
+
+        <!-- Modal del Escáner OCR -->
+        <div id="scanner-modal" class="fixed inset-0 bg-black/90 z-[60] hidden flex-col items-center justify-center p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm bg-brand-panel rounded-2xl overflow-hidden border border-slate-700 shadow-2xl">
+                <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white flex items-center gap-2"><i class="fas fa-camera text-brand-500"></i> Escanear Postal</h3>
+                    <button onclick="cerrarScanner()" class="text-slate-400 hover:text-white transition"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="relative bg-black aspect-[3/4] w-full flex items-center justify-center overflow-hidden">
+                    <video id="scanner-video" class="w-full h-full object-cover" playsinline autoplay></video>
+                    <!-- Guía visual -->
+                    <div class="absolute inset-0 border-[40px] border-black/50 pointer-events-none">
+                        <div class="w-full h-full border-2 border-brand-500 rounded-lg relative" id="scanner-frame">
+                            <div class="absolute top-2 left-0 right-0 text-center text-xs text-white bg-black/50 py-1 font-bold">Enfoca el código (ej: ARG 10)</div>
+                        </div>
+                    </div>
+                    <canvas id="scanner-canvas" class="hidden"></canvas>
+                    
+                    <!-- Overlay de carga -->
+                    <div id="scanner-loading" class="absolute inset-0 bg-black/80 flex-col items-center justify-center hidden">
+                        <i class="fas fa-spinner fa-spin text-4xl text-brand-500 mb-4"></i>
+                        <p class="text-white font-bold" id="scanner-status-text">Analizando imagen...</p>
+                    </div>
+                </div>
+                <div class="p-4 text-center">
+                    <p class="text-xs text-slate-400 mb-3">Asegúrate de que haya buena luz y el código sea legible.</p>
+                    <button id="btn-capture" onclick="capturarImagen()" class="w-16 h-16 bg-brand-500 rounded-full border-4 border-brand-panel outline outline-2 outline-brand-500 hover:bg-brand-400 transition-colors mx-auto"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuración Global y Utilidades
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fifa-album-2026';
+        let db, auth;
+        let currentUser = null;
+        let unsubscribeSnapshot = null;
+
+        // Estado Local del Álbum
+        let localStickers = {}; // Ej: {"ARG-1": 1, "ARG-2": 2, "FWC-5": 0}
+        let totalStickersCount = 0;
+        let saveTimeout = null;
+
+        // --- DATOS DEL MUNDIAL 2026 (48 Equipos, 12 Grupos) ---
+        // ISO codes para flagcdn.com
+        const MUNDIAL_DATA = [
+            {
+                group: 'Especiales',
+                teams: [
+                    { id: 'FWC', name: 'FIFA World Cup', iso: 'fifa', count: 20, special: true },
+                    { id: 'CC', name: 'Coca-Cola', iso: 'coca', count: 14, special: true }
+                ]
+            },
+            { group: 'Grupo A', teams: [{id:'MEX', name:'México', iso:'mx'}, {id:'RSA', name:'Sudáfrica', iso:'za'}, {id:'KOR', name:'Corea del Sur', iso:'kr'}, {id:'CZE', name:'Rep. Checa', iso:'cz'}] },
+            { group: 'Grupo B', teams: [{id:'CAN', name:'Canadá', iso:'ca'}, {id:'BIH', name:'Bosnia y Herzegovina', iso:'ba'}, {id:'QAT', name:'Catar', iso:'qa'}, {id:'SUI', name:'Suiza', iso:'ch'}] },
+            { group: 'Grupo C', teams: [{id:'BRA', name:'Brasil', iso:'br'}, {id:'MAR', name:'Marruecos', iso:'ma'}, {id:'HAI', name:'Haití', iso:'ht'}, {id:'SCO', name:'Escocia', iso:'gb-sct'}] },
+            { group: 'Grupo D', teams: [{id:'USA', name:'Estados Unidos', iso:'us'}, {id:'PAR', name:'Paraguay', iso:'py'}, {id:'AUS', name:'Australia', iso:'au'}, {id:'TUR', name:'Turquía', iso:'tr'}] },
+            { group: 'Grupo E', teams: [{id:'GER', name:'Alemania', iso:'de'}, {id:'CUW', name:'Curazao', iso:'cw'}, {id:'CIV', name:'Costa de Marfil', iso:'ci'}, {id:'ECU', name:'Ecuador', iso:'ec'}] },
+            { group: 'Grupo F', teams: [{id:'NED', name:'Países Bajos', iso:'nl'}, {id:'JPN', name:'Japón', iso:'jp'}, {id:'SWE', name:'Suecia', iso:'se'}, {id:'TUN', name:'Túnez', iso:'tn'}] },
+            { group: 'Grupo G', teams: [{id:'BEL', name:'Bélgica', iso:'be'}, {id:'EGY', name:'Egipto', iso:'eg'}, {id:'IRN', name:'Irán', iso:'ir'}, {id:'NZL', name:'Nueva Zelanda', iso:'nz'}] },
+            { group: 'Grupo H', teams: [{id:'ESP', name:'España', iso:'es'}, {id:'CPV', name:'Cabo Verde', iso:'cv'}, {id:'KSA', name:'Arabia Saudita', iso:'sa'}, {id:'URU', name:'Uruguay', iso:'uy'}] },
+            { group: 'Grupo I', teams: [{id:'FRA', name:'Francia', iso:'fr'}, {id:'SEN', name:'Senegal', iso:'sn'}, {id:'IRQ', name:'Irak', iso:'iq'}, {id:'NOR', name:'Noruega', iso:'no'}] },
+            { group: 'Grupo J', teams: [{id:'ARG', name:'Argentina', iso:'ar'}, {id:'ALG', name:'Argelia', iso:'dz'}, {id:'AUT', name:'Austria', iso:'at'}, {id:'JOR', name:'Jordania', iso:'jo'}] },
+            { group: 'Grupo K', teams: [{id:'POR', name:'Portugal', iso:'pt'}, {id:'COD', name:'R.D. del Congo', iso:'cd'}, {id:'UZB', name:'Uzbekistán', iso:'uz'}, {id:'COL', name:'Colombia', iso:'co'}] },
+            { group: 'Grupo L', teams: [{id:'ENG', name:'Inglaterra', iso:'gb-eng'}, {id:'CRO', name:'Croacia', iso:'hr'}, {id:'GHA', name:'Ghana', iso:'gh'}, {id:'PAN', name:'Panamá', iso:'pa'}] }
+        ];
+        const STICKERS_PER_TEAM = 20;
+
+        const UI = {
+            showModal: (title, msg, onOk = null, showCancel = false) => {
+                document.getElementById('modal-title').textContent = title;
+                document.getElementById('modal-message').textContent = msg;
+                const modal = document.getElementById('custom-modal');
+                const content = document.getElementById('modal-content');
+                const btnOk = document.getElementById('modal-btn-ok');
+                const btnCancel = document.getElementById('modal-btn-cancel');
+                
+                modal.classList.remove('hidden');
+                setTimeout(() => content.classList.replace('scale-95', 'scale-100'), 10);
+
+                const close = () => {
+                    content.classList.replace('scale-100', 'scale-95');
+                    setTimeout(() => modal.classList.add('hidden'), 200);
+                    btnOk.onclick = null;
+                    btnCancel.onclick = null;
+                };
+
+                btnCancel.style.display = showCancel ? 'block' : 'none';
+                
+                btnOk.onclick = () => { close(); if(onOk) onOk(); };
+                btnCancel.onclick = close;
+            },
+            showScreen: (screenId) => {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.add('hidden');
+                document.getElementById(screenId).classList.remove('hidden');
+                document.getElementById(screenId).classList.add('flex');
+            },
+            switchTab: (targetId) => {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden', 'block'));
+                document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
+                
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('bg-brand-600', 'text-white');
+                    btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+                });
+
+                const activeBtn = document.querySelector(`.tab-btn[data-target="${targetId}"]`);
+                if(activeBtn) {
+                    activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+                    activeBtn.classList.add('bg-brand-600', 'text-white');
+                }
+
+                const targetEl = document.getElementById(targetId);
+                if(targetEl) {
+                    targetEl.style.display = 'block';
+                    if(targetId === 'view-stats') renderStats();
+                    if(targetId === 'view-share') renderShare();
+                }
+            }
+        };
+
+        // Utilidad global para copiar
+        window.copyToClipboard = (elementId) => {
+            const el = document.getElementById(elementId);
+            el.select();
+            document.execCommand('copy');
+            UI.showModal('¡Copiado!', 'Lista copiada al portapapeles.');
+        };
+
+        function buildAlbumUI() {
+            const container = document.getElementById('album-container');
+            container.innerHTML = '';
+            totalStickersCount = 0;
+
+            MUNDIAL_DATA.forEach(groupData => {
+                const groupSection = document.createElement('div');
+                groupSection.className = 'group-section mb-10';
+                groupSection.dataset.group = groupData.group.toLowerCase();
+                
+                const groupTitle = document.createElement('h2');
+                groupTitle.className = 'text-xl md:text-2xl font-black mb-4 text-white uppercase tracking-widest border-b-2 border-brand-500 inline-block pb-1';
+                groupTitle.textContent = groupData.group;
+                groupSection.appendChild(groupTitle);
+
+                const teamsGrid = document.createElement('div');
+                teamsGrid.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+
+                groupData.teams.forEach(team => {
+                    const teamCard = document.createElement('div');
+                    teamCard.className = 'team-card bg-brand-panel rounded-2xl p-4 border border-slate-700 shadow-md';
+                    teamCard.dataset.teamId = team.id.toLowerCase();
+                    teamCard.dataset.teamName = team.name.toLowerCase();
+
+                    // Header del equipo
+                    let flagUrl = `https://flagcdn.com/w80/${team.iso}.png`;
+                    if (team.id === 'FWC') {
+                        flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/FIFA_logo_without_slogan.svg/1200px-FIFA_logo_without_slogan.svg.png';
+                    } else if (team.id === 'CC') {
+                        flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_logo.svg/1200px-Coca-Cola_logo.svg.png';
+                    }
+                    
+                    teamCard.innerHTML = `
+                        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
+                            <div class="flex items-center space-x-3">
+                                <img src="${flagUrl}" alt="${team.name}" class="w-10 h-7 object-cover rounded shadow-sm bg-white p-${team.special?1:0}">
+                                <div>
+                                    <h3 class="font-bold text-lg text-white">${team.name}</h3>
+                                    <span class="text-xs font-mono text-brand-500 font-bold bg-brand-900/50 px-2 py-0.5 rounded">${team.id}</span>
+                                </div>
+                            </div>
+                            <div class="text-xs font-semibold text-slate-400 team-progress" id="progress-${team.id}">
+                                0 / ${team.count || STICKERS_PER_TEAM}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-5 sm:grid-cols-6 gap-2 sm:gap-3 sticker-grid" id="grid-${team.id}">
+                        </div>
+                    `;
+                    
+                    teamsGrid.appendChild(teamCard);
+
+                    // Llenar stickers
+                    const stickerGrid = teamCard.querySelector(`#grid-${team.id}`);
+                    const limit = team.count || STICKERS_PER_TEAM;
+                    totalStickersCount += limit;
+
+                    for (let i = 1; i <= limit; i++) {
+                        const fullId = `${team.id}-${i}`;
+                        let label = i;
+                        
+                        // Adaptar visualmente el 00 y los ceros iniciales para la sección FIFA
+                        if (team.id === 'FWC') {
+                            label = i === 1 ? '00' : (i - 1).toString().padStart(2, '0');
+                        }
+                        
+                        const stickerBtn = document.createElement('button');
+                        stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sm:text-base sticker-missing';
+                        stickerBtn.id = `btn-${fullId}`;
+                        stickerBtn.dataset.id = fullId;
+                        stickerBtn.innerHTML = `
+                            <span>${label}</span>
+                            <span class="badge-repeated hidden" id="badge-${fullId}">+0</span>
+                        `;
+                        
+                        // Eventos de click y long press
+                        setupStickerEvents(stickerBtn, fullId);
+                        
+                        // Inicializar estado local si no existe
+                        if (typeof localStickers[fullId] === 'undefined') {
+                            localStickers[fullId] = 0;
+                        }
+
+                        stickerGrid.appendChild(stickerBtn);
+                    }
+                });
+
+                groupSection.appendChild(teamsGrid);
+                container.appendChild(groupSection);
+            });
+            
+            updateAllUIElements();
+        }
+
+        function setupStickerEvents(element, id) {
+            let pressTimer;
+            let isLongPress = false;
+
+            const handleIncrement = () => {
+                localStickers[id] = (localStickers[id] || 0) + 1;
+                updateStickerUI(id);
+                triggerSave();
+            };
+
+            const handleDecrement = () => {
+                if(localStickers[id] > 0) {
+                    localStickers[id] -= 1;
+                    if(navigator.vibrate) navigator.vibrate(50); // Haptic feedback suave
+                    updateStickerUI(id);
+                    triggerSave();
+                }
+            };
+
+            // Touch events para móviles
+            element.addEventListener('touchstart', (e) => {
+                isLongPress = false;
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    handleDecrement();
+                }, 500); // 500ms para considerar "mantener presionado"
+            }, {passive: true});
+
+            element.addEventListener('touchend', (e) => {
+                clearTimeout(pressTimer);
+                if (!isLongPress) {
+                    e.preventDefault(); // Evitar ghost clicks
+                    handleIncrement();
+                }
+            });
+
+            element.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+
+            // Mouse events para PC
+            element.addEventListener('mousedown', (e) => {
+                if(e.button !== 0) return; // solo click izquierdo
+                isLongPress = false;
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    handleDecrement();
+                }, 500);
+            });
+
+            element.addEventListener('mouseup', (e) => {
+                if(e.button !== 0) return;
+                clearTimeout(pressTimer);
+                if (!isLongPress) {
+                    handleIncrement();
+                }
+            });
+            
+            element.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+
+            // Click derecho también disminuye en PC
+            element.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                handleDecrement();
+            });
+        }
+
+        function updateStickerUI(id) {
+            const btn = document.getElementById(`btn-${id}`);
+            const badge = document.getElementById(`badge-${id}`);
+            if(!btn) return;
+
+            const count = localStickers[id] || 0;
+            
+            // Limpiar clases
+            btn.classList.remove('sticker-missing', 'sticker-obtained', 'sticker-repeated');
+            
+            if (count === 0) {
+                btn.classList.add('sticker-missing');
+                badge.classList.add('hidden');
+            } else if (count === 1) {
+                btn.classList.add('sticker-obtained');
+                badge.classList.add('hidden');
+            } else {
+                btn.classList.add('sticker-repeated');
+                badge.textContent = `+${count - 1}`;
+                badge.classList.remove('hidden');
+            }
+            
+            // Actualizar el progreso del equipo si está visible
+            const teamId = id.split('-')[0];
+            updateTeamProgressUI(teamId);
+        }
+
+        function updateTeamProgressUI(teamId) {
+            const progressEl = document.getElementById(`progress-${teamId}`);
+            if(!progressEl) return;
+            
+            let teamTotal = STICKERS_PER_TEAM;
+            for (const group of MUNDIAL_DATA) {
+                const t = group.teams.find(x => x.id === teamId);
+                if (t && t.count) {
+                    teamTotal = t.count;
+                    break;
+                }
+            }
+
+            let teamCount = 0;
+            for(let i=1; i<=teamTotal; i++) {
+                if((localStickers[`${teamId}-${i}`] || 0) > 0) teamCount++;
+            }
+            
+            progressEl.textContent = `${teamCount} / ${teamTotal}`;
+            
+            // Efecto visual si completa
+            const card = progressEl.closest('.team-card');
+            if(teamCount === teamTotal) {
+                card.classList.add('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
+            } else {
+                card.classList.remove('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
+            }
+        }
+
+        function updateAllUIElements() {
+            Object.keys(localStickers).forEach(id => updateStickerUI(id));
+            
+            // Actualizar progressos por equipo
+            const teamsProcessed = new Set();
+            Object.keys(localStickers).forEach(id => {
+                const teamId = id.split('-')[0];
+                if(!teamsProcessed.has(teamId)) {
+                    updateTeamProgressUI(teamId);
+                    teamsProcessed.add(teamId);
+                }
+            });
+        }
+
+        function triggerSave() {
+            if(!currentUser) return; // Modo invitado sin base de datos real o error
+            
+            if(saveTimeout) clearTimeout(saveTimeout);
+            
+            // Mostrar indicador de guardado en la barra superior (opcional)
+            const userDisp = document.getElementById('user-display');
+            const originalText = userDisp.textContent;
+            userDisp.innerHTML = `<i class="fas fa-sync fa-spin text-brand-500 mr-1"></i> Guardando...`;
+
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'album', 'progress');
+                    await setDoc(docRef, { stickers: localStickers }, { merge: true });
+                    userDisp.textContent = originalText;
+                } catch (error) {
+                    console.error("Error guardando:", error);
+                    userDisp.textContent = "Error al guardar";
+                    setTimeout(()=> userDisp.textContent = originalText, 2000);
+                }
+            }, 1000); // Debounce de 1 segundo
+        }
+
+        function listenToRemoteChanges() {
+            if(!currentUser) return;
+            if(unsubscribeSnapshot) unsubscribeSnapshot();
+
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'album', 'progress');
+            
+            unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.stickers) {
+                        // Mezclar los datos remotos en localStickers, pero priorizando remoto
+                        localStickers = { ...localStickers, ...data.stickers };
+                        updateAllUIElements();
+                    }
+                }
+            }, (error) => {
+                console.error("Error en sincronización en tiempo real:", error);
+            });
+        }
+
+        function renderStats() {
+            let obtained = 0;
+            let repeatedTotal = 0;
+            let groupStats = {};
+
+            MUNDIAL_DATA.forEach(g => {
+                groupStats[g.group] = { total: 0, obtained: 0 };
+                g.teams.forEach(t => {
+                    const limit = t.count || STICKERS_PER_TEAM;
+                    groupStats[g.group].total += limit;
+                    
+                    for(let i=1; i<=limit; i++) {
+                        const count = localStickers[`${t.id}-${i}`] || 0;
+                        if(count > 0) {
+                            obtained++;
+                            groupStats[g.group].obtained++;
+                        }
+                        if(count > 1) {
+                            repeatedTotal += (count - 1);
+                        }
+                    }
+                });
+            });
+
+            const percent = ((obtained / totalStickersCount) * 100).toFixed(1);
+            
+            document.getElementById('stat-percent').textContent = `${percent}%`;
+            document.getElementById('stat-obtained').innerHTML = `${obtained} <span class="text-sm text-slate-500 font-normal">/ ${totalStickersCount}</span>`;
+            document.getElementById('stat-repeated').textContent = repeatedTotal;
+
+            // Renderizar barras de grupo
+            const container = document.getElementById('stats-groups');
+            container.innerHTML = '';
+            
+            for (const [groupName, data] of Object.entries(groupStats)) {
+                const groupPercent = ((data.obtained / data.total) * 100).toFixed(0);
+                const isComplete = data.obtained === data.total;
+                
+                const el = document.createElement('div');
+                el.className = 'bg-slate-800 rounded-xl p-4';
+                el.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-sm ${isComplete ? 'text-brand-gold' : 'text-slate-300'}">${groupName} ${isComplete ? '<i class="fas fa-star ml-1"></i>' : ''}</span>
+                        <span class="text-xs text-slate-400">${data.obtained} / ${data.total} (${groupPercent}%)</span>
+                    </div>
+                    <div class="w-full bg-slate-900 rounded-full h-2.5">
+                        <div class="bg-${isComplete ? 'brand-gold' : 'brand-500'} h-2.5 rounded-full" style="width: ${groupPercent}%"></div>
+                    </div>
+                `;
+                container.appendChild(el);
+            }
+        }
+
+        function renderShare() {
+            let missingList = [];
+            let repeatedList = [];
+
+            MUNDIAL_DATA.forEach(g => {
+                g.teams.forEach(t => {
+                    let teamMissing = [];
+                    let teamRepeated = [];
+                    const limit = t.count || STICKERS_PER_TEAM;
+                    
+                    for(let i=1; i<=limit; i++) {
+                        const count = localStickers[`${t.id}-${i}`] || 0;
+                        if(count === 0) teamMissing.push(i);
+                        if(count > 1) teamRepeated.push(`${i}(x${count-1})`);
+                    }
+
+                    if(teamMissing.length > 0) missingList.push(`${t.name} (${t.id}): ${teamMissing.join(', ')}`);
+                    if(teamRepeated.length > 0) repeatedList.push(`${t.name} (${t.id}): ${teamRepeated.join(', ')}`);
+                });
+            });
+
+            document.getElementById('text-missing').value = missingList.length > 0 ? "¡Hola! Me faltan estas postales del Mundial 2026:\n\n" + missingList.join('\n') : "¡Felicidades! Tienes el álbum completo.";
+            document.getElementById('text-repeated').value = repeatedList.length > 0 ? "¡Hola! Tengo estas postales repetidas para cambiar:\n\n" + repeatedList.join('\n') : "No tienes postales repetidas.";
+        }
+
+        function setupSearch() {
+            const input = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search');
+            
+            const filterContent = () => {
+                const term = input.value.toLowerCase().trim();
+                
+                if(term === '') {
+                    clearBtn.classList.add('hidden');
+                    document.querySelectorAll('.group-section, .team-card, .sticker-btn').forEach(el => el.style.display = '');
+                    return;
+                }
+                
+                clearBtn.classList.remove('hidden');
+
+                // Lógica de búsqueda avanzada
+                document.querySelectorAll('.team-card').forEach(card => {
+                    const teamId = card.dataset.teamId;
+                    const teamName = card.dataset.teamName;
+                    let cardMatches = teamId.includes(term) || teamName.includes(term);
+                    let hasVisibleStickers = false;
+
+                    card.querySelectorAll('.sticker-btn').forEach(btn => {
+                        const num = btn.dataset.id.split('-')[1];
+                        const fullId = btn.dataset.id.toLowerCase().replace('-', ' '); // "arg 10"
+                        
+                        // Si el término es un número solo, o coincide con el id completo ("arg 10")
+                        if (term === num || fullId.includes(term) || cardMatches) {
+                            btn.style.display = '';
+                            hasVisibleStickers = true;
+                        } else {
+                            btn.style.display = 'none';
+                        }
+                    });
+
+                    if (cardMatches || hasVisibleStickers) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Ocultar grupos vacíos
+                document.querySelectorAll('.group-section').forEach(group => {
+                    const visibleTeams = Array.from(group.querySelectorAll('.team-card')).filter(c => c.style.display !== 'none');
+                    group.style.display = visibleTeams.length > 0 ? '' : 'none';
+                });
+            };
+
+            input.addEventListener('input', filterContent);
+            clearBtn.addEventListener('click', () => {
+                input.value = '';
+                filterContent();
+                input.focus();
+            });
+        }
+
+        async function initApp() {
+            try {
+                // Parseamos configuración de Firebase inyectada
+                if (typeof __firebase_config === 'undefined') {
+                    UI.showModal('Error', 'Configuración de Firebase no encontrada. Ejecutando en modo desconectado puro.');
+                    buildAlbumUI();
+                    UI.showScreen('app-screen');
+                    return;
+                }
+
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Configurar Listeners de UI
+                setupUIListeners();
+                setupSearch();
+
+                // Intentar Autenticación Inicial (Regla estricta)
+                let token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                
+                if (token && !auth.currentUser) {
+                    try {
+                        await signInWithCustomToken(auth, token);
+                    } catch (e) {
+                        console.error("Token custom fallido, procediendo normal", e);
+                    }
+                }
+
+                // Observador de Estado de Autenticación
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        
+                        // Mostrar el usuario limpiando el dominio falso oculto
+                        let displayId = `Usuario ${user.uid.substring(0,6)}`;
+                        if (user.email) {
+                            displayId = user.email.replace('@album2026.app', '');
+                        }
+                        
+                        document.getElementById('user-display').innerHTML = `<i class="fas fa-user-circle mr-1"></i> ${displayId}`;
+                        
+                        buildAlbumUI();
+                        listenToRemoteChanges();
+                        UI.showScreen('app-screen');
+                    } else {
+                        currentUser = null;
+                        if(unsubscribeSnapshot) unsubscribeSnapshot();
+                        UI.showScreen('auth-screen');
+                    }
+                });
+
+            } catch(e) {
+                console.error("Fallo de inicialización global:", e);
+            }
+        }
+
+        function setupUIListeners() {
+            // Cambio entre Login / Register
+            document.getElementById('show-register').onclick = (e) => {
+                e.preventDefault();
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+            };
+            document.getElementById('show-login').onclick = (e) => {
+                e.preventDefault();
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
+            };
+
+            // Formularios
+            document.getElementById('login-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button');
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                try {
+                    const username = document.getElementById('login-username').value.trim().toLowerCase();
+                    const fakeEmail = `${username}@album2026.app`;
+                    await signInWithEmailAndPassword(auth, fakeEmail, document.getElementById('login-password').value);
+                } catch (error) {
+                    UI.showModal('Error de Inicio', 'Usuario o contraseña incorrectos.');
+                } finally { btn.innerHTML = origHtml; }
+            };
+
+            document.getElementById('register-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const p1 = document.getElementById('reg-password').value;
+                const p2 = document.getElementById('reg-confirm').value;
+                if(p1 !== p2) {
+                    UI.showModal('Atención', 'Las contraseñas no coinciden.');
+                    return;
+                }
+
+                const btn = e.target.querySelector('button');
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                try {
+                    const username = document.getElementById('reg-username').value.trim().toLowerCase();
+                    const fakeEmail = `${username}@album2026.app`;
+                    await createUserWithEmailAndPassword(auth, fakeEmail, p1);
+                    // Automáticamente inicia sesión
+                } catch (error) {
+                    UI.showModal('Error al Registrar', 'El usuario ya existe o la contraseña es muy débil (mínimo 6 caracteres).');
+                } finally { btn.innerHTML = origHtml; }
+            };
+
+            // Invitado
+            document.getElementById('btn-anonymous').onclick = async () => {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    UI.showModal('Error', 'No se pudo iniciar modo invitado.');
+                }
+            };
+
+            // Cerrar Sesión
+            document.getElementById('btn-logout').onclick = () => {
+                UI.showModal('Cerrar Sesión', '¿Seguro que deseas salir?', async () => {
+                    await signOut(auth);
+                }, true);
+            };
+
+            // Tabs Navegación
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.onclick = () => UI.switchTab(btn.dataset.target);
+            });
+        }
+
+        // --- ESCÁNER OCR (INTELIGENCIA ARTIFICIAL) ---
+        let stream = null;
+        let isTesseractReady = false;
+        let worker = null;
+
+        async function initScanner() {
+            try {
+                // Actualizado para usar la API de Tesseract.js v4+ donde createWorker devuelve una promesa que ya está inicializada.
+                worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => { if(m.status === 'recognizing text') console.log(m.progress); }
+                });
+                
+                isTesseractReady = true;
+            } catch (e) {
+                console.error("Error cargando Tesseract:", e);
+            }
+        }
+        initScanner(); // Iniciar en segundo plano al cargar la app
+
+        window.abrirScanner = async () => {
+            const modal = document.getElementById('scanner-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                document.getElementById('scanner-video').srcObject = stream;
+            } catch (err) {
+                UI.showModal("Error", "No se pudo acceder a la cámara. Revisa los permisos de tu navegador.");
+                window.cerrarScanner();
+            }
+        };
+
+        window.cerrarScanner = () => {
+            const modal = document.getElementById('scanner-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            document.getElementById('scanner-loading').classList.add('hidden');
+            document.getElementById('scanner-loading').classList.remove('flex');
+        };
+
+        window.capturarImagen = async () => {
+            if(!isTesseractReady) {
+                UI.showModal("Cargando", "El motor de IA aún está cargando. Espera unos segundos y vuelve a intentarlo.");
+                return;
+            }
+            
+            const video = document.getElementById('scanner-video');
+            const canvas = document.getElementById('scanner-canvas');
+            const loadingOverlay = document.getElementById('scanner-loading');
+            const statusText = document.getElementById('scanner-status-text');
+            
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
+            statusText.textContent = "Analizando imagen...";
+
+            // Capturar frame de video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            try {
+                // Analizar la imagen con Tesseract
+                const { data: { text } } = await worker.recognize(canvas);
+                
+                // Buscar coincidencia simple en el texto escaneado
+                let foundId = null;
+                const upperText = text.toUpperCase();
+                
+                MUNDIAL_DATA.forEach(g => {
+                    g.teams.forEach(t => {
+                        if(upperText.includes(t.id)) {
+                            // Buscar un número después del código del equipo (ej. ARG 10, ARG-10)
+                            const match = upperText.match(new RegExp(`${t.id}\\s*[-_]?\\s*(\\d{1,2})`));
+                            if(match && match[1]) {
+                                const num = parseInt(match[1]);
+                                const limit = t.count || STICKERS_PER_TEAM;
+                                if(num >= 1 && num <= limit) {
+                                    foundId = `${t.id}-${num}`;
+                                }
+                            }
+                        }
+                    });
+                });
+
+                if(foundId) {
+                    UI.showModal("¡Encontrada!", `Postal detectada: ${foundId}. ¿Añadirla a tu álbum?`, () => {
+                        localStickers[foundId] = (localStickers[foundId] || 0) + 1;
+                        updateAllUIElements();
+                        triggerSave();
+                        window.cerrarScanner();
+                    }, true);
+                } else {
+                    UI.showModal("No detectada", "No se pudo detectar el código de la postal. Intenta enfocar mejor la zona del número (ej: ARG 10).");
+                }
+            } catch (err) {
+                UI.showModal("Error", "Ocurrió un error al analizar la imagen.");
+            } finally {
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+            }
+        };
+
+        // Arrancar
+        window.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
