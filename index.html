@@ -6,6 +6,7 @@
     <title>Álbum Virtual - Mundial 2026</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -379,8 +380,8 @@
                                 <div class="w-16 h-16 rounded-full border-4 border-brand-500/30 border-t-brand-500 animate-spin"></div>
                                 <i class="fas fa-magic absolute inset-0 flex items-center justify-center text-brand-500 text-xl" style="display:flex;"></i>
                             </div>
-                            <p class="text-white font-bold text-base" id="processing-status">Analizando con IA...</p>
-                            <p class="text-slate-400 text-xs mt-1" id="processing-sub">Identificando stickers pegados y vacíos</p>
+                            <p class="text-white font-bold text-base" id="processing-status">Leyendo imagen...</p>
+                            <p class="text-brand-400 text-xs mt-1 font-mono" id="processing-sub">Iniciando motor OCR</p>
                         </div>
                     </div>
 
@@ -996,75 +997,105 @@
             }, 800);
         };
 
-        // Función de Escáner Local (Simulación) sin usar APIs externas
+        // =============================================
+        // ESCÁNER OCR REAL (Tesseract.js local)
+        // =============================================
         async function analizarImagen(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
+            const statusText = document.getElementById('processing-status');
+            const subText = document.getElementById('processing-sub');
+            
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            document.getElementById('processing-status').textContent = 'Procesando imagen...';
-            document.getElementById('processing-sub').textContent = 'Análisis local en curso';
+            statusText.textContent = 'Analizando texto...';
+            subText.textContent = 'Cargando motor OCR (puede tardar unos segundos)';
 
             capturedImageBase64 = dataUrl;
 
-            // Simulamos el tiempo de lectura de un escáner real (1.5 segundos)
-            setTimeout(() => {
-                try {
-                    // Como no hay IA, elegimos un equipo al azar del TEAMS_MAP para simular la detección
-                    const equiposIds = Object.keys(TEAMS_MAP);
-                    const equipoAzarId = equiposIds[Math.floor(Math.random() * equiposIds.length)];
-                    const equipoInfo = TEAMS_MAP[equipoAzarId];
-                    const limite = equipoInfo.count || 20;
-
-                    // Generamos stickers detectados aleatoriamente para probar la UI
-                    const pegados = [];
-                    const vacios = [];
-
-                    for (let i = 1; i <= limite; i++) {
-                        const probabilidad = Math.random();
-                        if (probabilidad > 0.75) {
-                            pegados.push(i); // 25% de probabilidad de detectarlo como pegado
-                        } else if (probabilidad > 0.5) {
-                            vacios.push(i); // 25% de probabilidad de detectarlo como vacío
+            try {
+                // Ejecutar Tesseract sobre la imagen capturada
+                const resultOcr = await Tesseract.recognize(
+                    dataUrl,
+                    'eng', // Usamos inglés porque los códigos (ARG, BRA) y números son universales y más rápidos
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const progress = Math.round(m.progress * 100);
+                                subText.textContent = `Extrayendo datos: ${progress}%`;
+                            }
                         }
                     }
+                );
 
-                    // Estructura idéntica a la que esperaba el código original
-                    const result = {
-                        equipos_detectados: [
-                            {
-                                id: equipoAzarId,
-                                nombre: equipoInfo.name,
-                                stickers_pegados: pegados,
-                                stickers_vacios: vacios,
-                                confianza: "alta (simulada)"
-                            }
-                        ],
-                        nota: "Análisis local procesado correctamente."
-                    };
+                const textoExtraido = resultOcr.data.text.toUpperCase();
+                console.log("Texto detectado por OCR:\n", textoExtraido);
 
-                    processing.classList.add('hidden');
-                    processing.classList.remove('flex');
-
-                    // Si por azar no detectó nada, mostramos el modal de error
-                    if (pegados.length === 0 && vacios.length === 0) {
-                        UI.showModal(
-                            "Álbum no detectado",
-                            "No se pudieron identificar las figuras con claridad. Intenta de nuevo.",
-                            null
-                        );
-                        return;
+                // 1. Buscar códigos de equipos (ej: ARG, BRA, ESP)
+                const palabras = textoExtraido.split(/\W+/); // Separar por cualquier cosa que no sea letra/número
+                const equiposEncontrados = new Set();
+                
+                palabras.forEach(palabra => {
+                    // Validar si la palabra de 3 letras (o FWC/CC) coincide con algún equipo
+                    if (TEAMS_MAP[palabra]) {
+                        equiposEncontrados.add(palabra);
                     }
+                });
 
-                    // Enviamos los resultados a la UI original
-                    mostrarResultadosEscaner(result, dataUrl);
-
-                } catch (err) {
-                    processing.classList.add('hidden');
-                    processing.classList.remove('flex');
-                    console.error("Error en procesamiento local:", err);
-                    UI.showModal("Error de análisis", "Hubo un fallo al procesar la imagen localmente.");
+                // 2. Buscar números del 1 al 20 (o hasta el límite de stickers)
+                const numerosEncontrados = new Set();
+                const coincidenciasNumeros = textoExtraido.match(/\b\d{1,2}\b/g);
+                
+                if (coincidenciasNumeros) {
+                    coincidenciasNumeros.forEach(numStr => {
+                        const num = parseInt(numStr, 10);
+                        if (num >= 1 && num <= 20) { // Limitamos al máximo estándar
+                            numerosEncontrados.add(num);
+                        }
+                    });
                 }
-            }, 1500);
+
+                // Armar el resultado para la interfaz original
+                const result = {
+                    equipos_detectados: [],
+                    nota: "Escaneo completado."
+                };
+
+                // Si encontramos equipos, asignamos los números a esos equipos
+                if (equiposEncontrados.size > 0) {
+                    equiposEncontrados.forEach(equipoId => {
+                        const equipoInfo = TEAMS_MAP[equipoId];
+                        const limite = equipoInfo.count || 20;
+                        
+                        // Filtrar números para que no excedan el límite del equipo
+                        const numerosValidos = Array.from(numerosEncontrados).filter(n => n <= limite);
+
+                        result.equipos_detectados.push({
+                            id: equipoId,
+                            nombre: equipoInfo.name,
+                            stickers_pegados: numerosValidos,
+                            stickers_vacios: [], // No detectamos vacíos por OCR puro
+                            confianza: "alta (Lectura OCR)"
+                        });
+                    });
+                } else if (numerosEncontrados.size > 0) {
+                    // Encontró números pero no el código del país
+                    throw new Error("Se detectaron números pero no se pudo leer el código del país (ej: ARG). Asegúrate de enfocar el código.");
+                } else {
+                    throw new Error("No se detectó texto claro. Asegúrate de enfocar las letras y números.");
+                }
+
+                processing.classList.add('hidden');
+                processing.classList.remove('flex');
+
+                // Enviar resultados a la UI
+                mostrarResultadosEscaner(result, dataUrl);
+
+            } catch (err) {
+                processing.classList.add('hidden');
+                processing.classList.remove('flex');
+                console.error("Error en OCR:", err);
+                UI.showModal("Lectura fallida", err.message || "No se pudo extraer texto de la imagen. Intenta con mejor iluminación y enfoque.");
+            }
         }
 
         function mostrarResultadosEscaner(result, imageDataUrl) {
