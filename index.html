@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     
     <script>
         tailwind.config = {
@@ -329,7 +328,9 @@
             <i class="fas fa-camera"></i>
         </button>
 
-        <!-- MODAL ESCÁNER OCR + FLASH -->
+        <!-- =====================================================
+             MODAL DE ESCÁNER - REDISEÑADO (Análisis de Página)
+             ===================================================== -->
         <div id="scanner-modal" class="fixed inset-0 bg-black/95 z-[60] hidden flex-col items-center justify-start overflow-y-auto backdrop-blur-sm">
             <div class="w-full max-w-md mx-auto my-4 px-4">
                 
@@ -856,269 +857,296 @@
         }
 
         // =============================================
-        // ESCÁNER CON TESSERACT + FLASH
+        // ESCÁNER IA - ANÁLISIS DE PÁGINA COMPLETA
         // =============================================
         let cameraStream = null;
-        let flashOn = false;
-        let tesseractWorker = null;
-        let pendingScanResults = null;
-
-        // Inicializar Tesseract en segundo plano
-        async function initTesseract() {
-            try {
-                tesseractWorker = await Tesseract.createWorker('eng', 1, {
-                    logger: () => {}
-                });
-            } catch(e) { console.warn('Tesseract no disponible:', e); }
-        }
-        initTesseract();
+        let capturedImageBase64 = null;
 
         window.abrirScanner = async () => {
             const modal = document.getElementById('scanner-modal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            document.getElementById('scanner-results').classList.add('hidden');
+            document.getElementById('scanner-step-camera').classList.remove('hidden');
+            document.getElementById('scanner-step-results').classList.add('hidden');
+            capturedImageBase64 = null;
             pendingScanResults = null;
-            flashOn = false;
-            document.getElementById('btn-flash').classList.remove('text-yellow-400', 'bg-yellow-500/20');
-            document.getElementById('btn-flash').classList.add('text-slate-300', 'bg-slate-700');
 
             try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } } 
                 });
                 document.getElementById('scanner-video').srcObject = cameraStream;
             } catch (err) {
-                UI.showModal('Sin cámara', 'No se pudo acceder a la cámara. Verifica los permisos.');
-                cerrarScanner();
+                UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara. Puedes subir una foto con el botón de galería.");
             }
         };
 
         window.cerrarScanner = () => {
-            // Apagar flash si estaba encendido
-            if (cameraStream) {
-                const track = cameraStream.getVideoTracks()[0];
-                if (track && track.getCapabilities && track.getCapabilities().torch) {
-                    track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
-                }
-                cameraStream.getTracks().forEach(t => t.stop());
-                cameraStream = null;
-            }
-            flashOn = false;
-            pendingScanResults = null;
             const modal = document.getElementById('scanner-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+            capturedImageBase64 = null;
+            pendingScanResults = null;
         };
 
-        window.toggleFlash = async () => {
-            if (!cameraStream) return;
-            const track = cameraStream.getVideoTracks()[0];
-            if (!track) return;
-            const caps = track.getCapabilities ? track.getCapabilities() : {};
-            if (!caps.torch) {
-                UI.showModal('Flash no disponible', 'Este dispositivo o navegador no soporta el control del flash.');
-                return;
-            }
-            flashOn = !flashOn;
-            try {
-                await track.applyConstraints({ advanced: [{ torch: flashOn }] });
-                const btn = document.getElementById('btn-flash');
-                if (flashOn) {
-                    btn.classList.remove('text-slate-300', 'bg-slate-700');
-                    btn.classList.add('text-yellow-400', 'bg-yellow-500/20');
-                } else {
-                    btn.classList.add('text-slate-300', 'bg-slate-700');
-                    btn.classList.remove('text-yellow-400', 'bg-yellow-500/20');
-                }
-            } catch(e) {
-                UI.showModal('Flash no disponible', 'No se pudo controlar el flash en este dispositivo.');
-                flashOn = false;
-            }
+        window.abrirGaleria = () => {
+            document.getElementById('gallery-input').click();
+        };
+
+        window.procesarImagenGaleria = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result.split(',')[1];
+                analizarImagen(base64, e.target.result);
+            };
+            reader.readAsDataURL(file);
+            // Limpiar input para permitir seleccionar la misma imagen de nuevo
+            event.target.value = '';
         };
 
         window.capturarImagen = async () => {
             const video = document.getElementById('scanner-video');
             const canvas = document.getElementById('scanner-canvas');
-
+            
             if (!cameraStream || !video.videoWidth) {
-                UI.showModal('Cámara no lista', 'Espera a que la cámara esté activa.');
+                UI.showModal("Cámara no lista", "Espera a que la cámara esté activa o usa el botón de galería.");
                 return;
             }
 
-            // Animación de escaneo
+            // Efecto visual de captura
+            const frame = document.getElementById('scanner-frame');
+            frame.classList.add('scanning');
             document.getElementById('scan-line-anim').classList.remove('hidden');
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            setTimeout(() => document.getElementById('scan-line-anim').classList.add('hidden'), 600);
 
-            // Mostrar procesando
-            const proc = document.getElementById('scanner-processing');
-            proc.classList.remove('hidden');
-            proc.classList.add('flex');
-            document.getElementById('processing-status').textContent = 'Leyendo texto...';
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const base64 = dataUrl.split(',')[1];
+
+            setTimeout(() => {
+                frame.classList.remove('scanning');
+                document.getElementById('scan-line-anim').classList.add('hidden');
+                analizarImagen(base64, dataUrl);
+            }, 800);
+        };
+
+        async function analizarImagen(base64, dataUrl) {
+            // Mostrar overlay de procesamiento
+            const processing = document.getElementById('scanner-processing');
+            processing.classList.remove('hidden');
+            processing.classList.add('flex');
+            document.getElementById('processing-status').textContent = 'Analizando con IA...';
+            document.getElementById('processing-sub').textContent = 'Identificando stickers en la foto';
+
+            capturedImageBase64 = dataUrl;
 
             try {
-                if (!tesseractWorker) {
-                    proc.classList.add('hidden'); proc.classList.remove('flex');
-                    UI.showModal('OCR cargando', 'El lector de texto aún está cargando. Espera unos segundos e intenta de nuevo.');
+                // Construir el prompt para Claude Vision
+                const teamsList = Object.entries(TEAMS_MAP).map(([id, t]) => 
+                    `${id} (${t.name}, ${t.count || STICKERS_PER_TEAM} stickers)`
+                ).join(', ');
+
+                const systemPrompt = `Eres un asistente que analiza fotos de álbumes de stickers del Mundial FIFA 2026.
+Los equipos del álbum son: ${teamsList}.
+Cuando el usuario te muestre una foto de una o dos páginas del álbum, debes:
+1. Identificar qué equipo(s) aparecen en la página (por el código o nombre del país)
+2. Detectar cuáles casillas/stickers están OCUPADOS (tienen imagen pegada) vs cuáles están VACÍOS (solo marco o en blanco)
+3. Responder ÚNICAMENTE en formato JSON válido, sin texto adicional ni markdown.
+
+Formato de respuesta requerido:
+{
+  "equipos_detectados": [
+    {
+      "id": "ARG",
+      "nombre": "Argentina", 
+      "stickers_presentes": [1, 2, 3, 5, 7],
+      "stickers_ausentes": [4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "confianza": "alta"
+    }
+  ],
+  "nota": "descripción breve de lo observado"
+}
+
+Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
+{"equipos_detectados": [], "nota": "No se detectaron páginas de álbum"}`;
+
+                const response = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "claude-sonnet-4-20250514",
+                        max_tokens: 1000,
+                        system: systemPrompt,
+                        messages: [{
+                            role: "user",
+                            content: [
+                                {
+                                    type: "image",
+                                    source: { type: "base64", media_type: "image/jpeg", data: base64 }
+                                },
+                                {
+                                    type: "text",
+                                    text: "Analiza esta foto del álbum y dime qué stickers están pegados y cuáles faltan. Responde solo en JSON."
+                                }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const rawText = data.content.map(b => b.text || '').join('');
+                
+                // Parsear JSON (limpiar posibles backticks)
+                const clean = rawText.replace(/```json|```/g, '').trim();
+                const result = JSON.parse(clean);
+
+                processing.classList.add('hidden');
+                processing.classList.remove('flex');
+
+                if (!result.equipos_detectados || result.equipos_detectados.length === 0) {
+                    UI.showModal(
+                        "No se detectó álbum",
+                        result.nota || "No se pudieron identificar páginas del álbum en la foto. Intenta con mejor iluminación y enfocando las páginas completas.",
+                        null
+                    );
                     return;
                 }
 
-                const { data: { text } } = await tesseractWorker.recognize(canvas);
-                proc.classList.add('hidden'); proc.classList.remove('flex');
+                mostrarResultadosEscaner(result, dataUrl);
 
-                procesarTextoOCR(text);
-            } catch(err) {
-                proc.classList.add('hidden'); proc.classList.remove('flex');
-                console.error('OCR error:', err);
-                UI.showModal('Error', 'No se pudo leer la imagen. Intenta de nuevo.');
+            } catch (err) {
+                processing.classList.add('hidden');
+                processing.classList.remove('flex');
+                console.error("Error IA escáner:", err);
+                UI.showModal("Error de análisis", "No se pudo analizar la imagen. Verifica tu conexión e intenta nuevamente.");
             }
-        };
-
-        function procesarTextoOCR(rawText) {
-            const upper = rawText.toUpperCase().replace(/[^A-Z0-9\s\-]/g, ' ');
-            const encontrados = {}; // teamId -> Set de números
-
-            // Buscar todos los códigos de equipo conocidos en el texto
-            const teamIds = Object.keys(TEAMS_MAP);
-
-            for (const teamId of teamIds) {
-                if (!upper.includes(teamId)) continue;
-
-                const team = TEAMS_MAP[teamId];
-                const limit = team.count || STICKERS_PER_TEAM;
-
-                // Buscar TODOS los números en el texto que estén cerca del código del equipo
-                // Patrón: ARG seguido de números en el texto (con cualquier separador)
-                const regex = new RegExp(teamId + '[\\s\\-_]*([0-9]{1,2})', 'g');
-                let match;
-                while ((match = regex.exec(upper)) !== null) {
-                    const num = parseInt(match[1]);
-                    if (num >= 1 && num <= limit) {
-                        if (!encontrados[teamId]) encontrados[teamId] = new Set();
-                        encontrados[teamId].add(num);
-                    }
-                }
-
-                // También buscar números sueltos en el texto si el equipo está identificado
-                // (útil cuando el OCR separa el código del número)
-                if (encontrados[teamId] && encontrados[teamId].size > 0) {
-                    const numRegex = /\b([1-9]|1[0-9]|20)\b/g;
-                    let nm;
-                    while ((nm = numRegex.exec(upper)) !== null) {
-                        const n = parseInt(nm[1]);
-                        if (n >= 1 && n <= limit) {
-                            encontrados[teamId].add(n);
-                        }
-                    }
-                }
-            }
-
-            // Si no encontró nada con código+número, buscar solo números con cualquier equipo visible
-            if (Object.keys(encontrados).length === 0) {
-                // Intentar detectar equipo solo por nombre
-                for (const teamId of teamIds) {
-                    const team = TEAMS_MAP[teamId];
-                    if (upper.includes(team.name.toUpperCase().split(' ')[0])) {
-                        const limit = team.count || STICKERS_PER_TEAM;
-                        const numRegex = /\b([1-9]|1[0-9]|20)\b/g;
-                        let nm;
-                        while ((nm = numRegex.exec(upper)) !== null) {
-                            const n = parseInt(nm[1]);
-                            if (n >= 1 && n <= limit) {
-                                if (!encontrados[teamId]) encontrados[teamId] = new Set();
-                                encontrados[teamId].add(n);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (Object.keys(encontrados).length === 0) {
-                UI.showModal(
-                    'Nada detectado',
-                    'No se reconoció ningún código de equipo (ej: SUI, ARG). Asegúrate de que el código sea visible y legible.'
-                );
-                return;
-            }
-
-            // Construir resultado para mostrar
-            mostrarResultadosOCR(encontrados);
         }
 
-        function mostrarResultadosOCR(encontrados) {
-            pendingScanResults = encontrados;
+        function mostrarResultadosEscaner(result, imageDataUrl) {
+            pendingScanResults = result;
+
+            // Mostrar paso de resultados
+            document.getElementById('scanner-step-camera').classList.add('hidden');
+            document.getElementById('scanner-step-results').classList.remove('hidden');
+            if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+
+            // Mostrar preview de imagen
+            document.getElementById('result-preview').src = imageDataUrl;
+
+            // Calcular estadísticas
+            let countAdded = 0, countAlready = 0, countMissing = 0;
+            const teamNames = result.equipos_detectados.map(e => e.id).join(', ');
+            document.getElementById('result-team-badge').textContent = teamNames;
+
             const listContainer = document.getElementById('scan-results-list');
             listContainer.innerHTML = '';
 
-            for (const [teamId, numSet] of Object.entries(encontrados)) {
-                const team = TEAMS_MAP[teamId];
-                const nums = Array.from(numSet).sort((a,b) => a-b);
+            result.equipos_detectados.forEach(equipo => {
+                const team = TEAMS_MAP[equipo.id];
+                if (!team) return;
 
-                // Header equipo
-                const header = document.createElement('div');
-                header.className = 'flex items-center gap-2 mb-2 mt-1';
-                header.innerHTML = `
-                    <span class="bg-brand-900/50 text-brand-500 text-xs font-black px-2 py-0.5 rounded font-mono">${teamId}</span>
-                    <span class="text-slate-300 text-sm font-semibold">${team.name}</span>
-                `;
-                listContainer.appendChild(header);
+                const limit = team.count || STICKERS_PER_TEAM;
 
-                // Stickers encontrados
-                const numsDiv = document.createElement('div');
-                numsDiv.className = 'flex flex-wrap gap-1.5 mb-3';
-                nums.forEach(n => {
-                    const fullId = `${teamId}-${n}`;
-                    const yaLaTenia = (localStickers[fullId] || 0) > 0;
-                    const chip = document.createElement('span');
-                    chip.className = `text-xs font-bold px-2 py-1 rounded-lg ${yaLaTenia ? 'bg-blue-900/50 text-blue-300' : 'bg-brand-900/60 text-brand-400'}`;
-                    chip.textContent = `#${n}${yaLaTenia ? ' ✓' : ' +'}`;
-                    numsDiv.appendChild(chip);
+                // Header del equipo
+                const teamHeader = document.createElement('div');
+                teamHeader.className = 'text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1 px-1';
+                teamHeader.textContent = `${equipo.nombre || team.name} (${equipo.id})`;
+                listContainer.appendChild(teamHeader);
+
+                // Stickers presentes
+                (equipo.stickers_presentes || []).forEach(num => {
+                    if (num < 1 || num > limit) return;
+                    const fullId = `${equipo.id}-${num}`;
+                    const tieneActualmente = (localStickers[fullId] || 0) > 0;
+
+                    if (tieneActualmente) {
+                        countAlready++;
+                        const item = document.createElement('div');
+                        item.className = 'scan-result-item scan-result-already';
+                        item.innerHTML = `<i class="fas fa-check-circle mr-2"></i> #${num} — Ya la tenías`;
+                        listContainer.appendChild(item);
+                    } else {
+                        countAdded++;
+                        const item = document.createElement('div');
+                        item.className = 'scan-result-item scan-result-added';
+                        item.innerHTML = `<i class="fas fa-plus-circle mr-2"></i> #${num} — Se añadirá`;
+                        listContainer.appendChild(item);
+                    }
                 });
-                listContainer.appendChild(numsDiv);
-            }
 
-            document.getElementById('scanner-results').classList.remove('hidden');
+                // Stickers ausentes (solo mostrar resumen)
+                const ausentes = (equipo.stickers_ausentes || []).filter(n => n >= 1 && n <= limit);
+                if (ausentes.length > 0) {
+                    countMissing += ausentes.length;
+                    const item = document.createElement('div');
+                    item.className = 'scan-result-item scan-result-warning';
+                    item.innerHTML = `<i class="fas fa-times-circle mr-2"></i> Faltan: ${ausentes.slice(0, 8).join(', ')}${ausentes.length > 8 ? ` y ${ausentes.length - 8} más` : ''}`;
+                    listContainer.appendChild(item);
+                }
+            });
+
+            document.getElementById('res-count-added').textContent = countAdded;
+            document.getElementById('res-count-already').textContent = countAlready;
+            document.getElementById('res-count-missing').textContent = countMissing;
+
+            // Si no hay nada nuevo que añadir
+            if (countAdded === 0 && countAlready === 0) {
+                document.getElementById('btn-confirm-scan').disabled = true;
+                document.getElementById('btn-confirm-scan').classList.add('opacity-50', 'cursor-not-allowed');
+            }
         }
 
-        window.descartarResultados = () => {
+        window.descartarResultados = async () => {
             pendingScanResults = null;
-            document.getElementById('scanner-results').classList.add('hidden');
+            document.getElementById('scanner-step-results').classList.add('hidden');
+            document.getElementById('scanner-step-camera').classList.remove('hidden');
+            // Reiniciar cámara
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } } 
+                });
+                document.getElementById('scanner-video').srcObject = cameraStream;
+            } catch (err) { /* galería como alternativa */ }
         };
 
         window.confirmarResultados = () => {
             if (!pendingScanResults) return;
+
             let totalNuevas = 0;
 
-            for (const [teamId, numSet] of Object.entries(pendingScanResults)) {
-                const team = TEAMS_MAP[teamId];
-                if (!team) continue;
+            pendingScanResults.equipos_detectados.forEach(equipo => {
+                const team = TEAMS_MAP[equipo.id];
+                if (!team) return;
                 const limit = team.count || STICKERS_PER_TEAM;
-                numSet.forEach(n => {
-                    if (n < 1 || n > limit) return;
-                    const fullId = `${teamId}-${n}`;
+
+                (equipo.stickers_presentes || []).forEach(num => {
+                    if (num < 1 || num > limit) return;
+                    const fullId = `${equipo.id}-${num}`;
                     if ((localStickers[fullId] || 0) === 0) {
                         localStickers[fullId] = 1;
                         totalNuevas++;
-                        updateStickerUI(fullId, true);
+                        updateStickerUI(fullId, true); // con highlight
                     }
                 });
-            }
+            });
 
             triggerSave();
             cerrarScanner();
-
+            
             if (totalNuevas > 0) {
+                // Navegar al álbum para ver los cambios
                 UI.switchTab('view-album');
+                // Pequeño toast de confirmación
                 const toast = document.createElement('div');
                 toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full font-bold shadow-xl z-50 fade-in text-sm';
-                toast.innerHTML = `<i class="fas fa-check mr-2"></i> ${totalNuevas} sticker${totalNuevas !== 1 ? 's' : ''} añadido${totalNuevas !== 1 ? 's' : ''}`;
+                toast.innerHTML = `<i class="fas fa-check mr-2"></i> ${totalNuevas} sticker${totalNuevas > 1 ? 's' : ''} añadido${totalNuevas > 1 ? 's' : ''} al álbum`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
-            } else {
-                UI.showModal('Sin cambios', 'Todas las postales detectadas ya estaban en tu álbum.');
             }
         };
 
