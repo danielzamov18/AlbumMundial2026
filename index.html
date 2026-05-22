@@ -49,7 +49,6 @@
         .sticker-btn {
             transition: all 0.2s ease;
             touch-action: manipulation;
-            /* FIX: Evitar selección de texto en botones */
             user-select: none !important;
             -webkit-user-select: none !important;
             -moz-user-select: none !important;
@@ -60,7 +59,6 @@
         
         .sticker-btn:active { transform: scale(0.9); }
         
-        /* FIX: Evitar selección en spans dentro de botones */
         .sticker-btn * {
             user-select: none !important;
             -webkit-user-select: none !important;
@@ -87,7 +85,6 @@
             box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
         }
 
-        /* Sticker recién detectado por escáner */
         .sticker-scanned-new {
             animation: scanPulse 1s ease-in-out 2;
         }
@@ -113,7 +110,6 @@
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Escáner mejorado */
         .scan-result-item {
             display: flex;
             align-items: center;
@@ -127,7 +123,6 @@
         .scan-result-already { background: #1e2a3a; border: 1px solid #2563eb; color: #93c5fd; }
         .scan-result-warning { background: #2a1e1e; border: 1px solid #dc2626; color: #fca5a5; }
 
-        /* Animación de escaneo */
         @keyframes scanLine {
             0% { top: 0%; }
             100% { top: 100%; }
@@ -143,6 +138,13 @@
         #scanner-frame.scanning {
             border-color: #22c55e;
             box-shadow: inset 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Flash button activo */
+        #btn-flash.flash-on {
+            background: #fbbf24 !important;
+            color: #0f172a !important;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
         }
     </style>
 </head>
@@ -328,9 +330,7 @@
             <i class="fas fa-camera"></i>
         </button>
 
-        <!-- =====================================================
-             MODAL DE ESCÁNER - REDISEÑADO (Análisis de Página)
-             ===================================================== -->
+        <!-- MODAL DE ESCÁNER -->
         <div id="scanner-modal" class="fixed inset-0 bg-black/95 z-[60] hidden flex-col items-center justify-start overflow-y-auto backdrop-blur-sm">
             <div class="w-full max-w-md mx-auto my-4 px-4">
                 
@@ -353,7 +353,7 @@
                     <div class="bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700">
                         <p class="text-xs text-slate-300 leading-relaxed">
                             <i class="fas fa-lightbulb text-yellow-400 mr-1"></i>
-                            <strong class="text-white">Cómo usar:</strong> Enfoca 1 o 2 páginas del álbum con los stickers y toma la foto. La IA detectará cuáles tienes y cuáles te faltan.
+                            <strong class="text-white">Nuevo modo:</strong> La IA detecta qué stickers ya están pegados y cuáles faltan. Solo se guardarán los que ya tenés en el álbum físico.
                         </p>
                     </div>
 
@@ -363,12 +363,10 @@
                         
                         <!-- Marco guía -->
                         <div class="absolute inset-3 border-2 border-brand-500/60 rounded-xl pointer-events-none" id="scanner-frame">
-                            <!-- Esquinas decorativas -->
                             <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-brand-500 rounded-tl-lg"></div>
                             <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-brand-500 rounded-tr-lg"></div>
                             <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-brand-500 rounded-bl-lg"></div>
                             <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-brand-500 rounded-br-lg"></div>
-                            <!-- Línea de escaneo (aparece al capturar) -->
                             <div class="scan-line hidden" id="scan-line-anim"></div>
                         </div>
                         
@@ -382,23 +380,31 @@
                                 <i class="fas fa-magic absolute inset-0 flex items-center justify-center text-brand-500 text-xl" style="display:flex;"></i>
                             </div>
                             <p class="text-white font-bold text-base" id="processing-status">Analizando con IA...</p>
-                            <p class="text-slate-400 text-xs mt-1" id="processing-sub">Identificando stickers</p>
+                            <p class="text-slate-400 text-xs mt-1" id="processing-sub">Identificando stickers pegados y vacíos</p>
                         </div>
                     </div>
 
-                    <!-- Botón de captura -->
+                    <!-- Controles de cámara -->
                     <div class="flex items-center justify-center mt-5 mb-2 space-x-6">
+                        <!-- Botón galería -->
                         <button onclick="abrirGaleria()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white" title="Subir imagen">
                             <i class="fas fa-image text-lg"></i>
                         </button>
+                        
+                        <!-- Botón captura principal -->
                         <button id="btn-capture" onclick="capturarImagen()" 
                             class="w-20 h-20 rounded-full bg-white border-[6px] border-brand-500 shadow-[0_0_25px_rgba(34,197,94,0.5)] hover:scale-105 active:scale-95 transition-transform flex items-center justify-center">
                             <div class="w-14 h-14 rounded-full bg-brand-500"></div>
                         </button>
+
+                        <!-- Botón flash / linterna -->
+                        <button id="btn-flash" onclick="toggleFlash()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white" title="Flash / Linterna">
+                            <i class="fas fa-bolt text-lg"></i>
+                        </button>
+
                         <input type="file" id="gallery-input" accept="image/*" class="hidden" onchange="procesarImagenGaleria(event)">
-                        <div class="w-12 h-12"></div> <!-- Spacer -->
                     </div>
-                    <p class="text-center text-xs text-slate-500">Toca el círculo para capturar · <i class="fas fa-image"></i> para subir foto</p>
+                    <p class="text-center text-xs text-slate-500">Capturar · <i class="fas fa-image"></i> galería · <i class="fas fa-bolt"></i> flash</p>
                 </div>
 
                 <!-- PASO 2: Resultados del análisis -->
@@ -415,10 +421,15 @@
                         
                         <!-- Resumen -->
                         <div class="p-4">
+                            <!-- Leyenda del modo -->
+                            <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
+                                <i class="fas fa-info-circle text-brand-500 mr-1"></i>
+                                Solo se guardan las figus que <strong class="text-white">ya están pegadas</strong> en el álbum físico
+                            </div>
                             <div class="grid grid-cols-3 gap-3 mb-4 text-center">
                                 <div class="bg-slate-900 rounded-xl p-3">
                                     <p class="text-2xl font-black text-brand-500" id="res-count-added">0</p>
-                                    <p class="text-xs text-slate-400 mt-1">Marcadas</p>
+                                    <p class="text-xs text-slate-400 mt-1">Pegadas</p>
                                 </div>
                                 <div class="bg-slate-900 rounded-xl p-3">
                                     <p class="text-2xl font-black text-blue-400" id="res-count-already">0</p>
@@ -426,12 +437,12 @@
                                 </div>
                                 <div class="bg-slate-900 rounded-xl p-3">
                                     <p class="text-2xl font-black text-red-400" id="res-count-missing">0</p>
-                                    <p class="text-xs text-slate-400 mt-1">Te faltan</p>
+                                    <p class="text-xs text-slate-400 mt-1">Vacías</p>
                                 </div>
                             </div>
                             
                             <!-- Lista de resultados -->
-                            <div id="scan-results-list" class="max-h-48 overflow-y-auto space-y-1 hide-scrollbar"></div>
+                            <div id="scan-results-list" class="max-h-56 overflow-y-auto space-y-1 hide-scrollbar"></div>
                         </div>
                     </div>
 
@@ -464,8 +475,11 @@
         let totalStickersCount = 0;
         let saveTimeout = null;
 
-        // Resultados pendientes del escáner (antes de confirmar)
         let pendingScanResults = null;
+
+        // ---- Flash state ----
+        let flashOn = false;
+        let activeVideoTrack = null;
 
         const MUNDIAL_DATA = [
             {
@@ -490,9 +504,49 @@
         ];
         const STICKERS_PER_TEAM = 20;
 
-        // Mapa plano de equipos para búsqueda rápida
         const TEAMS_MAP = {};
         MUNDIAL_DATA.forEach(g => g.teams.forEach(t => { TEAMS_MAP[t.id] = t; }));
+
+        // =============================================
+        // FLASH / LINTERNA
+        // =============================================
+        window.toggleFlash = async () => {
+            const btn = document.getElementById('btn-flash');
+            if (!activeVideoTrack) {
+                UI.showModal('Sin cámara', 'Activa la cámara primero antes de usar el flash.');
+                return;
+            }
+            const capabilities = activeVideoTrack.getCapabilities ? activeVideoTrack.getCapabilities() : {};
+            if (!capabilities.torch) {
+                // Dispositivo no soporta torch → simular flash con pantalla blanca brevemente
+                UI.showModal('Flash no disponible', 'Tu dispositivo no soporta linterna. Se usará flash de pantalla al capturar.');
+                return;
+            }
+            try {
+                flashOn = !flashOn;
+                await activeVideoTrack.applyConstraints({ advanced: [{ torch: flashOn }] });
+                if (flashOn) {
+                    btn.classList.add('flash-on');
+                    btn.title = 'Apagar flash';
+                } else {
+                    btn.classList.remove('flash-on');
+                    btn.title = 'Encender flash';
+                }
+            } catch (err) {
+                console.error('Error al activar flash:', err);
+                UI.showModal('Error', 'No se pudo activar el flash en este dispositivo.');
+            }
+        };
+
+        // Apagar flash al cerrar sin fallar
+        function apagaFlash() {
+            if (activeVideoTrack && flashOn) {
+                try { activeVideoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e) {}
+                flashOn = false;
+                const btn = document.getElementById('btn-flash');
+                if (btn) btn.classList.remove('flash-on');
+            }
+        }
 
         const UI = {
             showModal: (title, msg, onOk = null, showCancel = false) => {
@@ -606,7 +660,6 @@
                         stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sm:text-base sticker-missing';
                         stickerBtn.id = `btn-${fullId}`;
                         stickerBtn.dataset.id = fullId;
-                        // FIX: atributo unselectable para IE y compatibilidad extra
                         stickerBtn.setAttribute('unselectable', 'on');
                         stickerBtn.innerHTML = `
                             <span class="pointer-events-none select-none">${label}</span>
@@ -857,7 +910,7 @@
         }
 
         // =============================================
-        // ESCÁNER IA - ANÁLISIS DE PÁGINA COMPLETA
+        // ESCÁNER IA - MODO: detectar stickers PEGADOS
         // =============================================
         let cameraStream = null;
         let capturedImageBase64 = null;
@@ -870,22 +923,30 @@
             document.getElementById('scanner-step-results').classList.add('hidden');
             capturedImageBase64 = null;
             pendingScanResults = null;
+            flashOn = false;
+            activeVideoTrack = null;
+            document.getElementById('btn-flash').classList.remove('flash-on');
 
             try {
                 cameraStream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } } 
                 });
-                document.getElementById('scanner-video').srcObject = cameraStream;
+                const videoEl = document.getElementById('scanner-video');
+                videoEl.srcObject = cameraStream;
+                // Guardar track para flash
+                activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) {
                 UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara. Puedes subir una foto con el botón de galería.");
             }
         };
 
         window.cerrarScanner = () => {
+            apagaFlash();
             const modal = document.getElementById('scanner-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+            activeVideoTrack = null;
             capturedImageBase64 = null;
             pendingScanResults = null;
         };
@@ -903,7 +964,6 @@
                 analizarImagen(base64, e.target.result);
             };
             reader.readAsDataURL(file);
-            // Limpiar input para permitir seleccionar la misma imagen de nuevo
             event.target.value = '';
         };
 
@@ -916,7 +976,6 @@
                 return;
             }
 
-            // Efecto visual de captura
             const frame = document.getElementById('scanner-frame');
             frame.classList.add('scanning');
             document.getElementById('scan-line-anim').classList.remove('hidden');
@@ -931,49 +990,53 @@
             setTimeout(() => {
                 frame.classList.remove('scanning');
                 document.getElementById('scan-line-anim').classList.add('hidden');
+                // Apagar flash después de capturar si estaba encendido
+                apagaFlash();
                 analizarImagen(base64, dataUrl);
             }, 800);
         };
 
         async function analizarImagen(base64, dataUrl) {
-            // Mostrar overlay de procesamiento
             const processing = document.getElementById('scanner-processing');
             processing.classList.remove('hidden');
             processing.classList.add('flex');
             document.getElementById('processing-status').textContent = 'Analizando con IA...';
-            document.getElementById('processing-sub').textContent = 'Identificando stickers en la foto';
+            document.getElementById('processing-sub').textContent = 'Detectando stickers pegados y casillas vacías';
 
             capturedImageBase64 = dataUrl;
 
             try {
-                // Construir el prompt para Claude Vision
                 const teamsList = Object.entries(TEAMS_MAP).map(([id, t]) => 
                     `${id} (${t.name}, ${t.count || STICKERS_PER_TEAM} stickers)`
                 ).join(', ');
 
-                const systemPrompt = `Eres un asistente que analiza fotos de álbumes de stickers del Mundial FIFA 2026.
+                // PROMPT ACTUALIZADO: pide detectar casillas OCUPADAS (pegadas) vs VACÍAS
+                const systemPrompt = `Eres un experto en analizar fotos de álbumes de figuritas/stickers del Mundial FIFA 2026.
 Los equipos del álbum son: ${teamsList}.
-Cuando el usuario te muestre una foto de una o dos páginas del álbum, debes:
-1. Identificar qué equipo(s) aparecen en la página (por el código o nombre del país)
-2. Detectar cuáles casillas/stickers están OCUPADOS (tienen imagen pegada) vs cuáles están VACÍOS (solo marco o en blanco)
-3. Responder ÚNICAMENTE en formato JSON válido, sin texto adicional ni markdown.
 
-Formato de respuesta requerido:
+TAREA CRÍTICA: Cuando veas una foto del álbum físico, debes identificar:
+- Casillas OCUPADAS: tienen una figurita/sticker pegada (hay imagen, foto del jugador o escudo)
+- Casillas VACÍAS: solo tienen el marco/borde impreso pero no tienen figurita pegada
+
+El usuario quiere registrar exactamente qué figus YA TIENE pegadas en su álbum físico.
+Las casillas vacías NO deben registrarse como obtenidas.
+
+Responde ÚNICAMENTE en formato JSON válido, sin texto adicional, sin markdown, sin explicaciones:
+
 {
   "equipos_detectados": [
     {
       "id": "ARG",
-      "nombre": "Argentina", 
-      "stickers_presentes": [1, 2, 3, 5, 7],
-      "stickers_ausentes": [4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "nombre": "Argentina",
+      "stickers_pegados": [1, 3, 5, 7, 12],
+      "stickers_vacios": [2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20],
       "confianza": "alta"
     }
   ],
-  "nota": "descripción breve de lo observado"
+  "nota": "descripción de lo observado"
 }
 
-Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
-{"equipos_detectados": [], "nota": "No se detectaron páginas de álbum"}`;
+Si no hay álbum visible responde: {"equipos_detectados": [], "nota": "No se detectaron páginas de álbum"}`;
 
                 const response = await fetch("https://api.anthropic.com/v1/messages", {
                     method: "POST",
@@ -991,7 +1054,7 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
                                 },
                                 {
                                     type: "text",
-                                    text: "Analiza esta foto del álbum y dime qué stickers están pegados y cuáles faltan. Responde solo en JSON."
+                                    text: "Analiza esta foto. Identifica qué casillas tienen figurita PEGADA (imagen real del jugador/escudo) y cuáles están VACÍAS (solo el marco impreso sin figurita). Responde solo en JSON."
                                 }
                             ]
                         }]
@@ -1000,8 +1063,6 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
 
                 const data = await response.json();
                 const rawText = data.content.map(b => b.text || '').join('');
-                
-                // Parsear JSON (limpiar posibles backticks)
                 const clean = rawText.replace(/```json|```/g, '').trim();
                 const result = JSON.parse(clean);
 
@@ -1011,7 +1072,7 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
                 if (!result.equipos_detectados || result.equipos_detectados.length === 0) {
                     UI.showModal(
                         "No se detectó álbum",
-                        result.nota || "No se pudieron identificar páginas del álbum en la foto. Intenta con mejor iluminación y enfocando las páginas completas.",
+                        result.nota || "No se pudieron identificar páginas del álbum. Intenta con mejor iluminación y enfoca las páginas completas.",
                         null
                     );
                     return;
@@ -1030,16 +1091,13 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
         function mostrarResultadosEscaner(result, imageDataUrl) {
             pendingScanResults = result;
 
-            // Mostrar paso de resultados
             document.getElementById('scanner-step-camera').classList.add('hidden');
             document.getElementById('scanner-step-results').classList.remove('hidden');
             if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
 
-            // Mostrar preview de imagen
             document.getElementById('result-preview').src = imageDataUrl;
 
-            // Calcular estadísticas
-            let countAdded = 0, countAlready = 0, countMissing = 0;
+            let countAdded = 0, countAlready = 0, countVacias = 0;
             const teamNames = result.equipos_detectados.map(e => e.id).join(', ');
             document.getElementById('result-team-badge').textContent = teamNames;
 
@@ -1049,55 +1107,71 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
             result.equipos_detectados.forEach(equipo => {
                 const team = TEAMS_MAP[equipo.id];
                 if (!team) return;
-
                 const limit = team.count || STICKERS_PER_TEAM;
 
-                // Header del equipo
                 const teamHeader = document.createElement('div');
                 teamHeader.className = 'text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1 px-1';
-                teamHeader.textContent = `${equipo.nombre || team.name} (${equipo.id})`;
+                teamHeader.innerHTML = `<i class="fas fa-flag mr-1"></i>${equipo.nombre || team.name} (${equipo.id}) — Confianza: ${equipo.confianza || 'media'}`;
                 listContainer.appendChild(teamHeader);
 
-                // Stickers presentes
-                (equipo.stickers_presentes || []).forEach(num => {
-                    if (num < 1 || num > limit) return;
-                    const fullId = `${equipo.id}-${num}`;
-                    const tieneActualmente = (localStickers[fullId] || 0) > 0;
+                // Stickers PEGADOS (los que ya están en el álbum físico)
+                const pegados = (equipo.stickers_pegados || []).filter(n => n >= 1 && n <= limit);
+                
+                if (pegados.length > 0) {
+                    pegados.forEach(num => {
+                        const fullId = `${equipo.id}-${num}`;
+                        const tieneActualmente = (localStickers[fullId] || 0) > 0;
+                        
+                        if (tieneActualmente) {
+                            countAlready++;
+                            const item = document.createElement('div');
+                            item.className = 'scan-result-item scan-result-already';
+                            item.innerHTML = `<i class="fas fa-check-circle mr-2"></i> #${num} — Ya estaba registrada`;
+                            listContainer.appendChild(item);
+                        } else {
+                            countAdded++;
+                            const item = document.createElement('div');
+                            item.className = 'scan-result-item scan-result-added';
+                            item.innerHTML = `<i class="fas fa-plus-circle mr-2"></i> #${num} — Detectada pegada → se añadirá`;
+                            listContainer.appendChild(item);
+                        }
+                    });
+                }
 
-                    if (tieneActualmente) {
-                        countAlready++;
-                        const item = document.createElement('div');
-                        item.className = 'scan-result-item scan-result-already';
-                        item.innerHTML = `<i class="fas fa-check-circle mr-2"></i> #${num} — Ya la tenías`;
-                        listContainer.appendChild(item);
-                    } else {
-                        countAdded++;
-                        const item = document.createElement('div');
-                        item.className = 'scan-result-item scan-result-added';
-                        item.innerHTML = `<i class="fas fa-plus-circle mr-2"></i> #${num} — Se añadirá`;
-                        listContainer.appendChild(item);
-                    }
-                });
-
-                // Stickers ausentes (solo mostrar resumen)
-                const ausentes = (equipo.stickers_ausentes || []).filter(n => n >= 1 && n <= limit);
-                if (ausentes.length > 0) {
-                    countMissing += ausentes.length;
+                // Casillas VACÍAS (resumen)
+                const vacias = (equipo.stickers_vacios || []).filter(n => n >= 1 && n <= limit);
+                if (vacias.length > 0) {
+                    countVacias += vacias.length;
                     const item = document.createElement('div');
                     item.className = 'scan-result-item scan-result-warning';
-                    item.innerHTML = `<i class="fas fa-times-circle mr-2"></i> Faltan: ${ausentes.slice(0, 8).join(', ')}${ausentes.length > 8 ? ` y ${ausentes.length - 8} más` : ''}`;
+                    const preview = vacias.slice(0, 10).join(', ');
+                    const extra = vacias.length > 10 ? ` y ${vacias.length - 10} más` : '';
+                    item.innerHTML = `<i class="fas fa-times-circle mr-2"></i> Vacías (${vacias.length}): ${preview}${extra}`;
+                    listContainer.appendChild(item);
+                }
+
+                // Si no se detectó ningún sticker
+                if (pegados.length === 0 && vacias.length === 0) {
+                    const item = document.createElement('div');
+                    item.className = 'scan-result-item scan-result-warning';
+                    item.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> No se pudieron leer los stickers de este equipo`;
                     listContainer.appendChild(item);
                 }
             });
 
             document.getElementById('res-count-added').textContent = countAdded;
             document.getElementById('res-count-already').textContent = countAlready;
-            document.getElementById('res-count-missing').textContent = countMissing;
+            document.getElementById('res-count-missing').textContent = countVacias;
 
-            // Si no hay nada nuevo que añadir
-            if (countAdded === 0 && countAlready === 0) {
-                document.getElementById('btn-confirm-scan').disabled = true;
-                document.getElementById('btn-confirm-scan').classList.add('opacity-50', 'cursor-not-allowed');
+            const confirmBtn = document.getElementById('btn-confirm-scan');
+            if (countAdded === 0) {
+                confirmBtn.disabled = true;
+                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                confirmBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Sin cambios nuevos';
+            } else {
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                confirmBtn.innerHTML = `<i class="fas fa-check mr-2"></i>Guardar ${countAdded} figura${countAdded > 1 ? 's' : ''}`;
             }
         }
 
@@ -1105,18 +1179,21 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
             pendingScanResults = null;
             document.getElementById('scanner-step-results').classList.add('hidden');
             document.getElementById('scanner-step-camera').classList.remove('hidden');
-            // Reiniciar cámara
+            flashOn = false;
+            activeVideoTrack = null;
+            document.getElementById('btn-flash').classList.remove('flash-on');
             try {
                 cameraStream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } } 
                 });
-                document.getElementById('scanner-video').srcObject = cameraStream;
+                const videoEl = document.getElementById('scanner-video');
+                videoEl.srcObject = cameraStream;
+                activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) { /* galería como alternativa */ }
         };
 
         window.confirmarResultados = () => {
             if (!pendingScanResults) return;
-
             let totalNuevas = 0;
 
             pendingScanResults.equipos_detectados.forEach(equipo => {
@@ -1124,29 +1201,32 @@ Si no puedes identificar ningún equipo o la imagen no es un álbum, responde:
                 if (!team) return;
                 const limit = team.count || STICKERS_PER_TEAM;
 
-                (equipo.stickers_presentes || []).forEach(num => {
+                // Solo guardar los stickers que detectamos PEGADOS
+                (equipo.stickers_pegados || []).forEach(num => {
                     if (num < 1 || num > limit) return;
                     const fullId = `${equipo.id}-${num}`;
                     if ((localStickers[fullId] || 0) === 0) {
                         localStickers[fullId] = 1;
                         totalNuevas++;
-                        updateStickerUI(fullId, true); // con highlight
+                        updateStickerUI(fullId, true);
                     }
+                    // Si ya tenía esa figu, NO se modifica (preserva el conteo actual)
                 });
+                // Los stickers VACÍOS no se tocan: si el usuario los tenía marcados, se quedan
             });
 
             triggerSave();
             cerrarScanner();
             
             if (totalNuevas > 0) {
-                // Navegar al álbum para ver los cambios
                 UI.switchTab('view-album');
-                // Pequeño toast de confirmación
                 const toast = document.createElement('div');
                 toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full font-bold shadow-xl z-50 fade-in text-sm';
-                toast.innerHTML = `<i class="fas fa-check mr-2"></i> ${totalNuevas} sticker${totalNuevas > 1 ? 's' : ''} añadido${totalNuevas > 1 ? 's' : ''} al álbum`;
+                toast.innerHTML = `<i class="fas fa-check mr-2"></i> ${totalNuevas} figura${totalNuevas > 1 ? 's' : ''} añadida${totalNuevas > 1 ? 's' : ''} al álbum`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
+            } else {
+                UI.showModal('Sin cambios', 'No había figuras nuevas para agregar.');
             }
         };
 
