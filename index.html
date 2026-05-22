@@ -1025,17 +1025,24 @@ Responde estrictamente en formato JSON sin texto extra. Formato:
                         contents: [{
                             parts: [
                                 { text: prompt },
-                                { inline_data: { mime_type: "image/jpeg", data: base64 } }
+                                { inlineData: { mimeType: "image/jpeg", data: base64 } }
                             ]
                         }],
                         generationConfig: {
-                            response_mime_type: "application/json", // Fuerza a la IA a devolver un JSON perfecto
+                            responseMimeType: "application/json",
                             temperature: 0.1
                         }
                     })
                 });
 
-                if (!response.ok) throw new Error(`Error de conexión con la IA (${response.status})`);
+                if (!response.ok) {
+                    let detalle = `Error HTTP ${response.status}`;
+                    try {
+                        const errorRes = await response.json();
+                        detalle = errorRes.error.message;
+                    } catch(e) {}
+                    throw new Error(`Google API: ${detalle}`);
+                }
 
                 const data = await response.json();
                 const jsonString = data.candidates[0].content.parts[0].text;
@@ -1064,7 +1071,7 @@ Responde estrictamente en formato JSON sin texto extra. Formato:
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
                 console.error("Error en IA:", err);
-                UI.showModal("Lectura fallida", err.message || "La IA no pudo entender la imagen. Intenta mejorar la iluminación.");
+                UI.showModal("❌ Detalle del Error", `La API de Google dice exactamente esto:\n\n${err.message}\n\nDime qué dice este mensaje para saber cómo arreglarlo.`);
             }
         }
 
