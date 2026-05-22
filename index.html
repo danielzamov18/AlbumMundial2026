@@ -393,20 +393,12 @@
         let localStickers = {};
         let totalStickersCount = 0;
         let saveTimeout = null;
-
         let pendingScanResults = null;
-
         let flashOn = false;
         let activeVideoTrack = null;
 
         const MUNDIAL_DATA = [
-            {
-                group: 'Especiales',
-                teams: [
-                    { id: 'FWC', name: 'FIFA World Cup', iso: 'fifa', count: 20, special: true },
-                    { id: 'CC', name: 'Coca-Cola', iso: 'coca', count: 14, special: true }
-                ]
-            },
+            { group: 'Especiales', teams: [ { id: 'FWC', name: 'FIFA World Cup', iso: 'fifa', count: 20, special: true }, { id: 'CC', name: 'Coca-Cola', iso: 'coca', count: 14, special: true } ] },
             { group: 'Grupo A', teams: [{id:'MEX', name:'México', iso:'mx'}, {id:'RSA', name:'Sudáfrica', iso:'za'}, {id:'KOR', name:'Corea del Sur', iso:'kr'}, {id:'CZE', name:'Rep. Checa', iso:'cz'}] },
             { group: 'Grupo B', teams: [{id:'CAN', name:'Canadá', iso:'ca'}, {id:'BIH', name:'Bosnia y Herzegovina', iso:'ba'}, {id:'QAT', name:'Catar', iso:'qa'}, {id:'SUI', name:'Suiza', iso:'ch'}] },
             { group: 'Grupo C', teams: [{id:'BRA', name:'Brasil', iso:'br'}, {id:'MAR', name:'Marruecos', iso:'ma'}, {id:'HAI', name:'Haití', iso:'ht'}, {id:'SCO', name:'Escocia', iso:'gb-sct'}] },
@@ -427,23 +419,12 @@
 
         window.toggleFlash = async () => {
             const btn = document.getElementById('btn-flash');
-            if (!activeVideoTrack) {
-                UI.showModal('Sin cámara', 'Activa la cámara primero antes de usar el flash.');
-                return;
-            }
+            if (!activeVideoTrack) return;
             const capabilities = activeVideoTrack.getCapabilities ? activeVideoTrack.getCapabilities() : {};
-            if (!capabilities.torch) {
-                UI.showModal('Flash no disponible', 'Tu dispositivo no soporta linterna. Se usará flash de pantalla al capturar.');
-                return;
-            }
-            try {
+            if (capabilities.torch) {
                 flashOn = !flashOn;
                 await activeVideoTrack.applyConstraints({ advanced: [{ torch: flashOn }] });
-                if (flashOn) { btn.classList.add('flash-on'); btn.title = 'Apagar flash'; }
-                else { btn.classList.remove('flash-on'); btn.title = 'Encender flash'; }
-            } catch (err) {
-                console.error('Error al activar flash:', err);
-                UI.showModal('Error', 'No se pudo activar el flash en este dispositivo.');
+                if (flashOn) btn.classList.add('flash-on'); else btn.classList.remove('flash-on');
             }
         };
 
@@ -460,21 +441,9 @@
             showModal: (title, msg, onOk = null, showCancel = false) => {
                 document.getElementById('modal-title').textContent = title;
                 document.getElementById('modal-message').textContent = msg;
-                const modal = document.getElementById('custom-modal');
-                const content = document.getElementById('modal-content');
-                const btnOk = document.getElementById('modal-btn-ok');
-                const btnCancel = document.getElementById('modal-btn-cancel');
-                modal.classList.remove('hidden');
-                setTimeout(() => content.classList.replace('scale-95', 'scale-100'), 10);
-                const close = () => {
-                    content.classList.replace('scale-100', 'scale-95');
-                    setTimeout(() => modal.classList.add('hidden'), 200);
-                    btnOk.onclick = null;
-                    btnCancel.onclick = null;
-                };
-                btnCancel.style.display = showCancel ? 'block' : 'none';
-                btnOk.onclick = () => { close(); if(onOk) onOk(); };
-                btnCancel.onclick = close;
+                document.getElementById('custom-modal').classList.remove('hidden');
+                document.getElementById('modal-btn-ok').onclick = () => { document.getElementById('custom-modal').classList.add('hidden'); if(onOk) onOk(); };
+                document.getElementById('modal-btn-cancel').style.display = showCancel ? 'block' : 'none';
             },
             showScreen: (screenId) => {
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -517,7 +486,6 @@
             MUNDIAL_DATA.forEach(groupData => {
                 const groupSection = document.createElement('div');
                 groupSection.className = 'group-section mb-10';
-                groupSection.dataset.group = groupData.group.toLowerCase();
                 
                 const groupTitle = document.createElement('h2');
                 groupTitle.className = 'text-xl md:text-2xl font-black mb-4 text-white uppercase tracking-widest border-b-2 border-brand-500 inline-block pb-1';
@@ -534,25 +502,20 @@
                     teamCard.dataset.teamName = team.name.toLowerCase();
 
                     let flagUrl = `https://flagcdn.com/w80/${team.iso}.png`;
-                    if (team.id === 'FWC') flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/FIFA_logo_without_slogan.svg/1200px-FIFA_logo_without_slogan.svg.png';
-                    else if (team.id === 'CC') flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_logo.svg/1200px-Coca-Cola_logo.svg.png';
                     
                     teamCard.innerHTML = `
                         <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
                             <div class="flex items-center space-x-3">
-                                <img src="${flagUrl}" alt="${team.name}" class="w-10 h-7 object-cover rounded shadow-sm bg-white p-${team.special?1:0}" draggable="false">
+                                <img src="${flagUrl}" class="w-10 h-7 object-cover rounded shadow-sm bg-white" draggable="false">
                                 <div>
                                     <h3 class="font-bold text-lg text-white">${team.name}</h3>
                                     <span class="text-xs font-mono text-brand-500 font-bold bg-brand-900/50 px-2 py-0.5 rounded">${team.id}</span>
                                 </div>
                             </div>
-                            <div class="text-xs font-semibold text-slate-400 team-progress" id="progress-${team.id}">
-                                0 / ${team.count || STICKERS_PER_TEAM}
-                            </div>
+                            <div class="text-xs font-semibold text-slate-400 team-progress" id="progress-${team.id}">0 / ${team.count || STICKERS_PER_TEAM}</div>
                         </div>
                         <div class="grid grid-cols-5 sm:grid-cols-6 gap-2 sm:gap-3 sticker-grid" id="grid-${team.id}"></div>
                     `;
-                    
                     teamsGrid.appendChild(teamCard);
 
                     const stickerGrid = teamCard.querySelector(`#grid-${team.id}`);
@@ -561,82 +524,32 @@
 
                     for (let i = 1; i <= limit; i++) {
                         const fullId = `${team.id}-${i}`;
-                        let label = i;
-                        if (team.id === 'FWC') label = i === 1 ? '00' : (i - 1).toString().padStart(2, '0');
-                        
                         const stickerBtn = document.createElement('button');
-                        stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sm:text-base sticker-missing';
+                        stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sticker-missing';
                         stickerBtn.id = `btn-${fullId}`;
                         stickerBtn.dataset.id = fullId;
-                        stickerBtn.setAttribute('unselectable', 'on');
-                        stickerBtn.innerHTML = `
-                            <span class="pointer-events-none select-none">${label}</span>
-                            <span class="badge-repeated hidden" id="badge-${fullId}">+0</span>
-                        `;
-                        
+                        stickerBtn.innerHTML = `<span>${i}</span><span class="badge-repeated hidden" id="badge-${fullId}">+0</span>`;
                         setupStickerEvents(stickerBtn, fullId);
-                        
                         if (typeof localStickers[fullId] === 'undefined') localStickers[fullId] = 0;
-
                         stickerGrid.appendChild(stickerBtn);
                     }
                 });
-
                 groupSection.appendChild(teamsGrid);
                 container.appendChild(groupSection);
             });
-            
             updateAllUIElements();
         }
 
         function setupStickerEvents(element, id) {
             let pressTimer;
-            let isLongPress = false;
-
-            const handleIncrement = () => {
-                localStickers[id] = (localStickers[id] || 0) + 1;
-                updateStickerUI(id);
-                triggerSave();
-            };
-
-            const handleDecrement = () => {
-                if(localStickers[id] > 0) {
-                    localStickers[id] -= 1;
-                    if(navigator.vibrate) navigator.vibrate(50);
-                    updateStickerUI(id);
-                    triggerSave();
-                }
-            };
-
             element.addEventListener('touchstart', (e) => {
-                isLongPress = false;
-                pressTimer = setTimeout(() => { isLongPress = true; handleDecrement(); }, 500);
+                pressTimer = setTimeout(() => {
+                    if(localStickers[id] > 0) { localStickers[id]--; updateStickerUI(id); triggerSave(); }
+                }, 500);
             }, {passive: true});
-
             element.addEventListener('touchend', (e) => {
                 clearTimeout(pressTimer);
-                if (!isLongPress) { e.preventDefault(); handleIncrement(); }
-            });
-
-            element.addEventListener('touchcancel', () => clearTimeout(pressTimer));
-
-            element.addEventListener('mousedown', (e) => {
-                if(e.button !== 0) return;
-                isLongPress = false;
-                pressTimer = setTimeout(() => { isLongPress = true; handleDecrement(); }, 500);
-            });
-
-            element.addEventListener('mouseup', (e) => {
-                if(e.button !== 0) return;
-                clearTimeout(pressTimer);
-                if (!isLongPress) handleIncrement();
-            });
-            
-            element.addEventListener('mouseleave', () => clearTimeout(pressTimer));
-
-            element.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                handleDecrement();
+                if(pressTimer) { localStickers[id] = (localStickers[id] || 0) + 1; updateStickerUI(id); triggerSave(); }
             });
         }
 
@@ -644,27 +557,11 @@
             const btn = document.getElementById(`btn-${id}`);
             const badge = document.getElementById(`badge-${id}`);
             if(!btn) return;
-
             const count = localStickers[id] || 0;
             btn.classList.remove('sticker-missing', 'sticker-obtained', 'sticker-repeated');
-            
-            if (count === 0) {
-                btn.classList.add('sticker-missing');
-                badge.classList.add('hidden');
-            } else if (count === 1) {
-                btn.classList.add('sticker-obtained');
-                badge.classList.add('hidden');
-            } else {
-                btn.classList.add('sticker-repeated');
-                badge.textContent = `+${count - 1}`;
-                badge.classList.remove('hidden');
-            }
-
-            if (highlight) {
-                btn.classList.add('sticker-scanned-new');
-                setTimeout(() => btn.classList.remove('sticker-scanned-new'), 2000);
-            }
-            
+            if (count === 0) { btn.classList.add('sticker-missing'); badge.classList.add('hidden'); } 
+            else if (count === 1) { btn.classList.add('sticker-obtained'); badge.classList.add('hidden'); }
+            else { btn.classList.add('sticker-repeated'); badge.textContent = `+${count - 1}`; badge.classList.remove('hidden'); }
             const teamId = id.split('-')[0];
             updateTeamProgressUI(teamId);
         }
@@ -673,43 +570,24 @@
             const progressEl = document.getElementById(`progress-${teamId}`);
             if(!progressEl) return;
             let teamTotal = STICKERS_PER_TEAM;
-            for (const group of MUNDIAL_DATA) {
-                const t = group.teams.find(x => x.id === teamId);
-                if (t && t.count) { teamTotal = t.count; break; }
-            }
+            for (const group of MUNDIAL_DATA) { const t = group.teams.find(x => x.id === teamId); if (t && t.count) { teamTotal = t.count; break; } }
             let teamCount = 0;
             for(let i=1; i<=teamTotal; i++) { if((localStickers[`${teamId}-${i}`] || 0) > 0) teamCount++; }
             progressEl.textContent = `${teamCount} / ${teamTotal}`;
-            const card = progressEl.closest('.team-card');
-            if(teamCount === teamTotal) card.classList.add('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
-            else card.classList.remove('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
         }
 
         function updateAllUIElements() {
             Object.keys(localStickers).forEach(id => updateStickerUI(id));
-            const teamsProcessed = new Set();
-            Object.keys(localStickers).forEach(id => {
-                const teamId = id.split('-')[0];
-                if(!teamsProcessed.has(teamId)) { updateTeamProgressUI(teamId); teamsProcessed.add(teamId); }
-            });
         }
 
         function triggerSave() {
             if(!currentUser) return;
             if(saveTimeout) clearTimeout(saveTimeout);
-            const userDisp = document.getElementById('user-display');
-            const originalText = userDisp.textContent;
-            userDisp.innerHTML = `<i class="fas fa-sync fa-spin text-brand-500 mr-1"></i> Guardando...`;
             saveTimeout = setTimeout(async () => {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'album', 'progress');
                     await setDoc(docRef, { stickers: localStickers }, { merge: true });
-                    userDisp.textContent = originalText;
-                } catch (error) {
-                    console.error("Error guardando:", error);
-                    userDisp.textContent = "Error al guardar";
-                    setTimeout(()=> userDisp.textContent = originalText, 2000);
-                }
+                } catch (error) { console.error("Error guardando:", error); }
             }, 1000);
         }
 
@@ -722,7 +600,7 @@
                     const data = docSnap.data();
                     if (data.stickers) { localStickers = { ...localStickers, ...data.stickers }; updateAllUIElements(); }
                 }
-            }, (error) => console.error("Error en sincronización:", error));
+            });
         }
 
         function renderStats() {
@@ -817,9 +695,6 @@
             clearBtn.addEventListener('click', () => { input.value = ''; filterContent(); input.focus(); });
         }
 
-        let cameraStream = null;
-        let capturedImageBase64 = null;
-
         window.abrirScanner = async () => {
             const modal = document.getElementById('scanner-modal');
             modal.classList.remove('hidden');
@@ -840,7 +715,7 @@
                 videoEl.srcObject = cameraStream;
                 activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) {
-                UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara. Puedes subir una foto con el botón de galería.");
+                UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara.");
             }
         };
 
@@ -873,10 +748,7 @@
             const video = document.getElementById('scanner-video');
             const canvas = document.getElementById('scanner-canvas');
             
-            if (!cameraStream || !video.videoWidth) {
-                UI.showModal("Cámara no lista", "Espera a que la cámara esté activa o usa el botón de galería.");
-                return;
-            }
+            if (!cameraStream || !video.videoWidth) return;
 
             const frame = document.getElementById('scanner-frame');
             frame.classList.add('scanning');
@@ -899,44 +771,41 @@
 
         async function analizarImagenIA(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
-            const statusText = document.getElementById('processing-status');
-            const subText = document.getElementById('processing-sub');
-            
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            statusText.textContent = 'Conectando con Google...';
-            subText.textContent = 'Enviando imagen a la IA';
-
+            
             try {
-                // CORRECCIÓN: Usamos gemini-1.5-flash-latest
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
                 
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: 'Analiza la foto y devuelve JSON estricto: {"equipo": "ARG", "pegados": [1, 2, 5]}. Responde SOLO con el JSON.' },
-                                { inlineData: { mimeType: "image/jpeg", data: base64 } }
-                            ]
-                        }]
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [
+                            { text: "Analiza esta página. Devuelve SOLO este JSON: {\"equipo\": \"ARG\", \"pegados\": [1,2,5]}. No añadas explicaciones." }, 
+                            { inlineData: { mimeType: "image/jpeg", data: base64 } }
+                        ]}] 
                     })
                 });
 
-                if (!response.ok) throw new Error("Rechazo de Google.");
+                if (!response.ok) throw new Error("Fallo en la comunicación con Google.");
 
                 const data = await response.json();
-                const jsonText = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
+                const rawText = data.candidates[0].content.parts[0].text;
+                const jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                 const result = JSON.parse(jsonText);
                 
-                mostrarResultadosEscaner(TEAMS_MAP[result.equipo], result.pegados, dataUrl);
-
-            } catch (err) {
-                alert("Error al escanear: " + err.message);
+                if (result.equipo && Array.isArray(result.pegados)) {
+                    mostrarResultadosEscaner(TEAMS_MAP[result.equipo], result.pegados, dataUrl);
+                } else {
+                    throw new Error("Formato de respuesta inválido.");
+                }
+            } catch(e) { 
+                alert("Hubo un error: " + e.message); 
+            } finally {
+                processing.classList.add('hidden');
+                processing.classList.remove('flex');
             }
-            processing.classList.add('hidden');
-            processing.classList.remove('flex');
         }
 
         function mostrarResultadosEscaner(equipo, pegadosDetectados, imageDataUrl) {
@@ -946,8 +815,9 @@
             document.getElementById('result-team-badge').textContent = equipo ? equipo.name : "Desconocido";
             pendingScanResults = { equipo: equipo, seleccionados: new Set(pegadosDetectados) };
             
-            const grid = document.getElementById('quick-grid');
-            grid.innerHTML = '';
+            const grid = document.getElementById('scan-results-list');
+            grid.innerHTML = '<div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>';
+            const quickGrid = document.getElementById('quick-grid');
             const limit = equipo ? (equipo.count || STICKERS_PER_TEAM) : 20;
             
             for (let i = 1; i <= limit; i++) {
@@ -960,24 +830,23 @@
                     btn.classList.toggle('bg-brand-500');
                     btn.classList.toggle('bg-slate-800');
                 };
-                grid.appendChild(btn);
+                quickGrid.appendChild(btn);
             }
         }
 
         window.confirmarResultados = () => {
-            pendingScanResults.seleccionados.forEach(num => {
-                const fullId = `${pendingScanResults.equipo.id}-${num}`;
-                localStickers[fullId] = 1;
-            });
-            updateAllUIElements();
+            if (pendingScanResults && pendingScanResults.equipo) {
+                pendingScanResults.seleccionados.forEach(num => {
+                    const fullId = `${pendingScanResults.equipo.id}-${num}`;
+                    localStickers[fullId] = 1;
+                });
+                updateAllUIElements();
+                triggerSave();
+            }
             cerrarScanner();
         };
 
-        window.descartarResultados = () => {
-            cerrarScanner();
-        };
-
-        function actualizarBotonConfirmar() {}
+        window.descartarResultados = () => { cerrarScanner(); };
 
         async function initApp() {
             try {
