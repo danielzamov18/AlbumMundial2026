@@ -910,7 +910,7 @@
         }
 
         // =============================================
-        // ESCÁNER IA - MODO: detectar stickers PEGADOS
+        // ESCÁNER LOCAL - MODO: SIMULADO
         // =============================================
         let cameraStream = null;
         let capturedImageBase64 = null;
@@ -996,106 +996,75 @@
             }, 800);
         };
 
-        // Gemini API Key (gratuita - Google AI Studio)
-        const GEMINI_API_KEY = "AIzaSyDGTHMHmKMuXFD7J0Y0_NxWiHDG2mUTbSA";
-        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
+        // Función de Escáner Local (Simulación) sin usar APIs externas
         async function analizarImagen(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            document.getElementById('processing-status').textContent = 'Analizando con IA...';
-            document.getElementById('processing-sub').textContent = 'Detectando stickers pegados y casillas vacías';
+            document.getElementById('processing-status').textContent = 'Procesando imagen...';
+            document.getElementById('processing-sub').textContent = 'Análisis local en curso';
 
             capturedImageBase64 = dataUrl;
 
-            try {
-                const teamsList = Object.entries(TEAMS_MAP).map(([id, t]) => 
-                    `${id} (${t.name}, ${t.count || STICKERS_PER_TEAM} stickers)`
-                ).join(', ');
+            // Simulamos el tiempo de lectura de un escáner real (1.5 segundos)
+            setTimeout(() => {
+                try {
+                    // Como no hay IA, elegimos un equipo al azar del TEAMS_MAP para simular la detección
+                    const equiposIds = Object.keys(TEAMS_MAP);
+                    const equipoAzarId = equiposIds[Math.floor(Math.random() * equiposIds.length)];
+                    const equipoInfo = TEAMS_MAP[equipoAzarId];
+                    const limite = equipoInfo.count || 20;
 
-                const prompt = `Eres un experto en analizar fotos de álbumes de figuritas del Mundial FIFA 2026.
-Los equipos del álbum son: ${teamsList}.
+                    // Generamos stickers detectados aleatoriamente para probar la UI
+                    const pegados = [];
+                    const vacios = [];
 
-TAREA: Analiza la foto del álbum físico e identifica:
-- Casillas OCUPADAS (stickers_pegados): tienen figurita/imagen del jugador o escudo pegada
-- Casillas VACÍAS (stickers_vacios): solo tienen el marco impreso pero sin figurita
-
-El usuario quiere saber exactamente qué figus YA tiene pegadas en el álbum físico.
-Cada página del álbum muestra un equipo con su código (ej: ARG, BRA, ESP) y números del 1 al 20 en cada casilla.
-
-Responde ÚNICAMENTE con JSON válido, sin texto extra, sin markdown:
-
-{
-  "equipos_detectados": [
-    {
-      "id": "ARG",
-      "nombre": "Argentina",
-      "stickers_pegados": [1, 3, 5, 7, 12],
-      "stickers_vacios": [2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20],
-      "confianza": "alta"
-    }
-  ],
-  "nota": "descripción breve de lo observado"
-}
-
-Si la imagen no es un álbum de figuritas responde exactamente: {"equipos_detectados":[],"nota":"No se detectaron páginas de álbum"}`;
-
-                const response = await fetch(GEMINI_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                {
-                                    inline_data: {
-                                        mime_type: "image/jpeg",
-                                        data: base64
-                                    }
-                                },
-                                { text: prompt }
-                            ]
-                        }],
-                        generationConfig: {
-                            temperature: 0.1,
-                            maxOutputTokens: 1500
+                    for (let i = 1; i <= limite; i++) {
+                        const probabilidad = Math.random();
+                        if (probabilidad > 0.75) {
+                            pegados.push(i); // 25% de probabilidad de detectarlo como pegado
+                        } else if (probabilidad > 0.5) {
+                            vacios.push(i); // 25% de probabilidad de detectarlo como vacío
                         }
-                    })
-                });
+                    }
 
-                if (!response.ok) {
-                    const errText = await response.text();
-                    console.error("Gemini error:", response.status, errText);
-                    throw new Error(`Gemini ${response.status}: ${errText}`);
+                    // Estructura idéntica a la que esperaba el código original
+                    const result = {
+                        equipos_detectados: [
+                            {
+                                id: equipoAzarId,
+                                nombre: equipoInfo.name,
+                                stickers_pegados: pegados,
+                                stickers_vacios: vacios,
+                                confianza: "alta (simulada)"
+                            }
+                        ],
+                        nota: "Análisis local procesado correctamente."
+                    };
+
+                    processing.classList.add('hidden');
+                    processing.classList.remove('flex');
+
+                    // Si por azar no detectó nada, mostramos el modal de error
+                    if (pegados.length === 0 && vacios.length === 0) {
+                        UI.showModal(
+                            "Álbum no detectado",
+                            "No se pudieron identificar las figuras con claridad. Intenta de nuevo.",
+                            null
+                        );
+                        return;
+                    }
+
+                    // Enviamos los resultados a la UI original
+                    mostrarResultadosEscaner(result, dataUrl);
+
+                } catch (err) {
+                    processing.classList.add('hidden');
+                    processing.classList.remove('flex');
+                    console.error("Error en procesamiento local:", err);
+                    UI.showModal("Error de análisis", "Hubo un fallo al procesar la imagen localmente.");
                 }
-
-                const data = await response.json();
-                const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                console.log("Gemini respuesta:", rawText);
-
-                const clean = rawText.replace(/```json|```/g, '').trim();
-                const result = JSON.parse(clean);
-
-                processing.classList.add('hidden');
-                processing.classList.remove('flex');
-
-                if (!result.equipos_detectados || result.equipos_detectados.length === 0) {
-                    UI.showModal(
-                        "No se detectó álbum",
-                        result.nota || "No se pudieron identificar páginas del álbum. Intenta con mejor iluminación y enfoca las páginas completas.",
-                        null
-                    );
-                    return;
-                }
-
-                mostrarResultadosEscaner(result, dataUrl);
-
-            } catch (err) {
-                processing.classList.add('hidden');
-                processing.classList.remove('flex');
-                console.error("Error escáner:", err);
-                UI.showModal("Error de análisis", `No se pudo analizar la imagen: ${err.message}. Verifica tu conexión.`);
-            }
+            }, 1500);
         }
 
         function mostrarResultadosEscaner(result, imageDataUrl) {
