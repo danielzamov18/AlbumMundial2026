@@ -842,15 +842,32 @@
 
         async function initApp() {
             try {
-                // Parseamos configuración de Firebase inyectada
-                if (typeof __firebase_config === 'undefined') {
-                    UI.showModal('Error', 'Configuración de Firebase no encontrada. Ejecutando en modo desconectado puro.');
-                    buildAlbumUI();
-                    UI.showScreen('app-screen');
-                    return;
+                // 🔴 REEMPLAZA ESTO CON LOS DATOS DE TU PROYECTO DE FIREBASE 🔴
+                // Ve a Firebase > Configuración del proyecto > Tus apps > copia estos valores
+                const MI_FIREBASE_CONFIG = {
+                    apiKey: "AIzaSyDZxMvxXZzfR4Wa7dSRXqLkzpf_mxtV8CQ",
+                    authDomain: "album-mundial-2026-339ba.firebaseapp.com",
+                    projectId: "album-mundial-2026-339ba",
+                    storageBucket: "album-mundial-2026-339ba.firebasestorage.app",
+                    messagingSenderId: "7583927837",
+                    appId: "1:7583927837:web:e9acb8f62de0c377c640f4"
+                };
+                // 🔴 FIN DE LA CONFIGURACIÓN 🔴
+
+                let firebaseConfig;
+
+                // Detectamos si estamos en la vista previa o en tu página final
+                if (typeof __firebase_config !== 'undefined') {
+                    // Modo vista previa (ignorar)
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    // Modo real (Usa tus datos)
+                    if (MI_FIREBASE_CONFIG.apiKey === "TU_API_KEY_AQUI") {
+                        UI.showModal('Atención', 'No has puesto tus datos de Firebase en el código. La app funcionará solo en tu navegador (sin guardar en la nube) hasta que pongas tu configuración.');
+                    }
+                    firebaseConfig = MI_FIREBASE_CONFIG;
                 }
 
-                const firebaseConfig = JSON.parse(__firebase_config);
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
