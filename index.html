@@ -424,26 +424,12 @@
                         <div class="p-4">
                             <!-- Leyenda del modo -->
                             <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
-                                <i class="fas fa-info-circle text-brand-500 mr-1"></i>
-                                Solo se guardan las figus que <strong class="text-white">ya están pegadas</strong> en el álbum físico
-                            </div>
-                            <div class="grid grid-cols-3 gap-3 mb-4 text-center">
-                                <div class="bg-slate-900 rounded-xl p-3">
-                                    <p class="text-2xl font-black text-brand-500" id="res-count-added">0</p>
-                                    <p class="text-xs text-slate-400 mt-1">Pegadas</p>
-                                </div>
-                                <div class="bg-slate-900 rounded-xl p-3">
-                                    <p class="text-2xl font-black text-blue-400" id="res-count-already">0</p>
-                                    <p class="text-xs text-slate-400 mt-1">Ya tenías</p>
-                                </div>
-                                <div class="bg-slate-900 rounded-xl p-3">
-                                    <p class="text-2xl font-black text-red-400" id="res-count-missing">0</p>
-                                    <p class="text-xs text-slate-400 mt-1">Vacías</p>
-                                </div>
+                                <i class="fas fa-bolt text-yellow-400 mr-1"></i>
+                                <strong>Modo Rápido:</strong> Todas las figuras se marcan como pegadas. Toca los números que te <strong>faltan</strong> para desmarcarlos.
                             </div>
                             
-                            <!-- Lista de resultados -->
-                            <div id="scan-results-list" class="max-h-56 overflow-y-auto space-y-1 hide-scrollbar"></div>
+                            <!-- Lista de resultados interactiva -->
+                            <div id="scan-results-list" class="space-y-1"></div>
                         </div>
                     </div>
 
@@ -998,7 +984,7 @@
         };
 
         // =============================================
-        // ESCÁNER OCR REAL (Tesseract.js local)
+        // ESCÁNER OCR REAL - MODO CARGA RÁPIDA (Detecta País)
         // =============================================
         async function analizarImagen(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
@@ -1007,8 +993,8 @@
             
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            statusText.textContent = 'Analizando texto...';
-            subText.textContent = 'Cargando motor OCR (puede tardar unos segundos)';
+            statusText.textContent = 'Buscando país...';
+            subText.textContent = 'Analizando título de la página';
 
             capturedImageBase64 = dataUrl;
 
@@ -1016,12 +1002,12 @@
                 // Ejecutar Tesseract sobre la imagen capturada
                 const resultOcr = await Tesseract.recognize(
                     dataUrl,
-                    'eng', // Usamos inglés porque los códigos (ARG, BRA) y números son universales y más rápidos
+                    'eng', // Inglés es más rápido para mayúsculas
                     {
                         logger: m => {
                             if (m.status === 'recognizing text') {
                                 const progress = Math.round(m.progress * 100);
-                                subText.textContent = `Extrayendo datos: ${progress}%`;
+                                subText.textContent = `Extrayendo texto: ${progress}%`;
                             }
                         }
                     }
@@ -1030,158 +1016,113 @@
                 const textoExtraido = resultOcr.data.text.toUpperCase();
                 console.log("Texto detectado por OCR:\n", textoExtraido);
 
-                // 1. Buscar códigos de equipos (ej: ARG, BRA, ESP)
-                const palabras = textoExtraido.split(/\W+/); // Separar por cualquier cosa que no sea letra/número
-                const equiposEncontrados = new Set();
-                
-                palabras.forEach(palabra => {
-                    // Validar si la palabra de 3 letras (o FWC/CC) coincide con algún equipo
-                    if (TEAMS_MAP[palabra]) {
-                        equiposEncontrados.add(palabra);
-                    }
-                });
+                let equipoDetectado = null;
 
-                // 2. Buscar números del 1 al 20 (o hasta el límite de stickers)
-                const numerosEncontrados = new Set();
-                const coincidenciasNumeros = textoExtraido.match(/\b\d{1,2}\b/g);
-                
-                if (coincidenciasNumeros) {
-                    coincidenciasNumeros.forEach(numStr => {
-                        const num = parseInt(numStr, 10);
-                        if (num >= 1 && num <= 20) { // Limitamos al máximo estándar
-                            numerosEncontrados.add(num);
-                        }
-                    });
+                // 1. Buscar por nombre completo del país (Más confiable desde lejos)
+                for (const [id, team] of Object.entries(TEAMS_MAP)) {
+                    // Quitamos tildes para evitar errores de OCR
+                    const nombreLimpio = team.name.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const textoLimpio = textoExtraido.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    
+                    if (textoLimpio.includes(nombreLimpio)) {
+                        equipoDetectado = team;
+                        break;
+                    }
                 }
 
-                // Armar el resultado para la interfaz original
-                const result = {
-                    equipos_detectados: [],
-                    nota: "Escaneo completado."
-                };
+                // 2. Si no encontró el nombre largo, buscar por código de 3 letras (ej: ARG)
+                if (!equipoDetectado) {
+                    const palabras = textoExtraido.split(/\W+/); 
+                    for (const palabra of palabras) {
+                        if (palabra.length >= 2 && TEAMS_MAP[palabra]) {
+                            equipoDetectado = TEAMS_MAP[palabra];
+                            break;
+                        }
+                    }
+                }
 
-                // Si encontramos equipos, asignamos los números a esos equipos
-                if (equiposEncontrados.size > 0) {
-                    equiposEncontrados.forEach(equipoId => {
-                        const equipoInfo = TEAMS_MAP[equipoId];
-                        const limite = equipoInfo.count || 20;
-                        
-                        // Filtrar números para que no excedan el límite del equipo
-                        const numerosValidos = Array.from(numerosEncontrados).filter(n => n <= limite);
-
-                        result.equipos_detectados.push({
-                            id: equipoId,
-                            nombre: equipoInfo.name,
-                            stickers_pegados: numerosValidos,
-                            stickers_vacios: [], // No detectamos vacíos por OCR puro
-                            confianza: "alta (Lectura OCR)"
-                        });
-                    });
-                } else if (numerosEncontrados.size > 0) {
-                    // Encontró números pero no el código del país
-                    throw new Error("Se detectaron números pero no se pudo leer el código del país (ej: ARG). Asegúrate de enfocar el código.");
-                } else {
-                    throw new Error("No se detectó texto claro. Asegúrate de enfocar las letras y números.");
+                if (!equipoDetectado) {
+                    throw new Error("No pude identificar de qué país es la página. Asegúrate de enfocar bien el título grande (ej: ARGENTINA o ARG).");
                 }
 
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
 
                 // Enviar resultados a la UI
-                mostrarResultadosEscaner(result, dataUrl);
+                mostrarResultadosEscaner(equipoDetectado, dataUrl);
 
             } catch (err) {
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
                 console.error("Error en OCR:", err);
-                UI.showModal("Lectura fallida", err.message || "No se pudo extraer texto de la imagen. Intenta con mejor iluminación y enfoque.");
+                UI.showModal("Lectura fallida", err.message || "No se pudo extraer texto. Intenta con mejor iluminación y enfoca el título del equipo.");
             }
         }
 
-        function mostrarResultadosEscaner(result, imageDataUrl) {
-            pendingScanResults = result;
-
+        function mostrarResultadosEscaner(equipo, imageDataUrl) {
             document.getElementById('scanner-step-camera').classList.add('hidden');
             document.getElementById('scanner-step-results').classList.remove('hidden');
             if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
 
             document.getElementById('result-preview').src = imageDataUrl;
+            document.getElementById('result-team-badge').innerHTML = `<i class="fas fa-flag mr-1"></i> ${equipo.name} (${equipo.id})`;
 
-            let countAdded = 0, countAlready = 0, countVacias = 0;
-            const teamNames = result.equipos_detectados.map(e => e.id).join(', ');
-            document.getElementById('result-team-badge').textContent = teamNames;
+            const limit = equipo.count || STICKERS_PER_TEAM;
+            
+            // Estado global temporal para esta captura
+            pendingScanResults = {
+                equipo: equipo,
+                seleccionados: new Set()
+            };
+
+            // Pre-seleccionar todas por defecto (asumimos que quiere guardar la página completa menos las que falten)
+            for (let i = 1; i <= limit; i++) {
+                pendingScanResults.seleccionados.add(i);
+            }
 
             const listContainer = document.getElementById('scan-results-list');
-            listContainer.innerHTML = '';
+            listContainer.innerHTML = `
+                <div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>
+            `;
 
-            result.equipos_detectados.forEach(equipo => {
-                const team = TEAMS_MAP[equipo.id];
-                if (!team) return;
-                const limit = team.count || STICKERS_PER_TEAM;
+            const grid = document.getElementById('quick-grid');
+            
+            for (let i = 1; i <= limit; i++) {
+                const btn = document.createElement('button');
+                // Estilo inicial: Seleccionado (Verde)
+                btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                btn.textContent = i;
 
-                const teamHeader = document.createElement('div');
-                teamHeader.className = 'text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1 px-1';
-                teamHeader.innerHTML = `<i class="fas fa-flag mr-1"></i>${equipo.nombre || team.name} (${equipo.id}) — Confianza: ${equipo.confianza || 'media'}`;
-                listContainer.appendChild(teamHeader);
+                btn.onclick = () => {
+                    if (pendingScanResults.seleccionados.has(i)) {
+                        // Desmarcar (Gris) -> El usuario dice "Esta me falta"
+                        pendingScanResults.seleccionados.delete(i);
+                        btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 border-2 border-slate-700';
+                    } else {
+                        // Volver a marcar (Verde) -> El usuario dice "Ah no, sí la tengo"
+                        pendingScanResults.seleccionados.add(i);
+                        btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                    }
+                    actualizarBotonConfirmar();
+                };
+                grid.appendChild(btn);
+            }
 
-                // Stickers PEGADOS (los que ya están en el álbum físico)
-                const pegados = (equipo.stickers_pegados || []).filter(n => n >= 1 && n <= limit);
-                
-                if (pegados.length > 0) {
-                    pegados.forEach(num => {
-                        const fullId = `${equipo.id}-${num}`;
-                        const tieneActualmente = (localStickers[fullId] || 0) > 0;
-                        
-                        if (tieneActualmente) {
-                            countAlready++;
-                            const item = document.createElement('div');
-                            item.className = 'scan-result-item scan-result-already';
-                            item.innerHTML = `<i class="fas fa-check-circle mr-2"></i> #${num} — Ya estaba registrada`;
-                            listContainer.appendChild(item);
-                        } else {
-                            countAdded++;
-                            const item = document.createElement('div');
-                            item.className = 'scan-result-item scan-result-added';
-                            item.innerHTML = `<i class="fas fa-plus-circle mr-2"></i> #${num} — Detectada pegada → se añadirá`;
-                            listContainer.appendChild(item);
-                        }
-                    });
-                }
+            actualizarBotonConfirmar();
+        }
 
-                // Casillas VACÍAS (resumen)
-                const vacias = (equipo.stickers_vacios || []).filter(n => n >= 1 && n <= limit);
-                if (vacias.length > 0) {
-                    countVacias += vacias.length;
-                    const item = document.createElement('div');
-                    item.className = 'scan-result-item scan-result-warning';
-                    const preview = vacias.slice(0, 10).join(', ');
-                    const extra = vacias.length > 10 ? ` y ${vacias.length - 10} más` : '';
-                    item.innerHTML = `<i class="fas fa-times-circle mr-2"></i> Vacías (${vacias.length}): ${preview}${extra}`;
-                    listContainer.appendChild(item);
-                }
-
-                // Si no se detectó ningún sticker
-                if (pegados.length === 0 && vacias.length === 0) {
-                    const item = document.createElement('div');
-                    item.className = 'scan-result-item scan-result-warning';
-                    item.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> No se pudieron leer los stickers de este equipo`;
-                    listContainer.appendChild(item);
-                }
-            });
-
-            document.getElementById('res-count-added').textContent = countAdded;
-            document.getElementById('res-count-already').textContent = countAlready;
-            document.getElementById('res-count-missing').textContent = countVacias;
-
+        function actualizarBotonConfirmar() {
             const confirmBtn = document.getElementById('btn-confirm-scan');
-            if (countAdded === 0) {
+            const cantidad = pendingScanResults.seleccionados.size;
+            
+            if (cantidad === 0) {
                 confirmBtn.disabled = true;
                 confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                confirmBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Sin cambios nuevos';
+                confirmBtn.innerHTML = 'Ninguna seleccionada';
             } else {
                 confirmBtn.disabled = false;
                 confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                confirmBtn.innerHTML = `<i class="fas fa-check mr-2"></i>Guardar ${countAdded} figura${countAdded > 1 ? 's' : ''}`;
+                confirmBtn.innerHTML = `<i class="fas fa-check mr-2"></i>Guardar ${cantidad} pegadas`;
             }
         }
 
@@ -1203,26 +1144,19 @@
         };
 
         window.confirmarResultados = () => {
-            if (!pendingScanResults) return;
+            if (!pendingScanResults || pendingScanResults.seleccionados.size === 0) return;
             let totalNuevas = 0;
+            const equipo = pendingScanResults.equipo;
 
-            pendingScanResults.equipos_detectados.forEach(equipo => {
-                const team = TEAMS_MAP[equipo.id];
-                if (!team) return;
-                const limit = team.count || STICKERS_PER_TEAM;
-
-                // Solo guardar los stickers que detectamos PEGADOS
-                (equipo.stickers_pegados || []).forEach(num => {
-                    if (num < 1 || num > limit) return;
-                    const fullId = `${equipo.id}-${num}`;
-                    if ((localStickers[fullId] || 0) === 0) {
-                        localStickers[fullId] = 1;
-                        totalNuevas++;
-                        updateStickerUI(fullId, true);
-                    }
-                    // Si ya tenía esa figu, NO se modifica (preserva el conteo actual)
-                });
-                // Los stickers VACÍOS no se tocan: si el usuario los tenía marcados, se quedan
+            // Guardar solo las que el usuario dejó marcadas en verde
+            pendingScanResults.seleccionados.forEach(num => {
+                const fullId = `${equipo.id}-${num}`;
+                // Solo incrementamos si no la tenía ya (para no registrar "repetidas" por error al escanear)
+                if ((localStickers[fullId] || 0) === 0) {
+                    localStickers[fullId] = 1;
+                    totalNuevas++;
+                    updateStickerUI(fullId, true);
+                }
             });
 
             triggerSave();
@@ -1236,7 +1170,7 @@
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
             } else {
-                UI.showModal('Sin cambios', 'No había figuras nuevas para agregar.');
+                UI.showModal('Listo', 'Ninguna figura nueva añadida (ya las tenías registradas).');
             }
         };
 
