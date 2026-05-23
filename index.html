@@ -150,6 +150,7 @@
 </head>
 <body class="min-h-screen flex flex-col font-sans">
 
+    <!-- Modal personalizado -->
     <div id="custom-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div class="bg-brand-panel border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl transform scale-95 transition-transform duration-200" id="modal-content">
             <h3 id="modal-title" class="text-xl font-bold mb-2 text-white">Título</h3>
@@ -161,6 +162,7 @@
         </div>
     </div>
 
+    <!-- Pantalla de Autenticación -->
     <div id="auth-screen" class="flex-1 flex items-center justify-center p-4 fade-in">
         <div class="w-full max-w-md bg-brand-panel p-8 rounded-3xl shadow-xl border border-slate-800">
             <div class="text-center mb-8">
@@ -217,6 +219,7 @@
         </div>
     </div>
 
+    <!-- App Principal -->
     <div id="app-screen" class="hidden flex-col h-screen overflow-hidden">
         
         <header class="bg-brand-panel border-b border-slate-800 z-10 p-4 sticky top-0 shadow-md">
@@ -249,6 +252,7 @@
         <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 relative" id="main-scroll">
             <div class="max-w-5xl mx-auto h-full relative">
                 
+                <!-- Vista: Álbum -->
                 <div id="view-album" class="view-section fade-in block">
                     <div class="sticky -top-4 md:-top-6 bg-[#0f172a] pt-4 md:pt-6 pb-4 z-30 shadow-[0_10px_20px_-5px_rgba(15,23,42,1)] border-b border-slate-800 mb-6 -mx-4 px-4 md:-mx-6 md:px-6">
                         <div class="relative group">
@@ -274,6 +278,7 @@
                     </div>
                 </div>
 
+                <!-- Vista: Estadísticas -->
                 <div id="view-stats" class="view-section hidden fade-in">
                     <h2 class="text-2xl font-bold mb-6 text-white border-b border-slate-800 pb-2">Progreso General</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -295,6 +300,7 @@
                     <div id="stats-groups" class="space-y-4"></div>
                 </div>
 
+                <!-- Vista: Compartir -->
                 <div id="view-share" class="view-section hidden fade-in">
                     <h2 class="text-2xl font-bold mb-6 text-white border-b border-slate-800 pb-2">Intercambio</h2>
                     <p class="text-slate-400 mb-6 text-sm">Genera listas listas para enviar por WhatsApp o redes sociales.</p>
@@ -319,13 +325,16 @@
             </div>
         </main>
 
+        <!-- Botón Flotante Escáner -->
         <button onclick="abrirScanner()" class="fixed bottom-6 right-6 bg-brand-500 hover:bg-brand-400 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] flex items-center justify-center text-xl transition-transform active:scale-90 z-40">
             <i class="fas fa-camera"></i>
         </button>
 
+        <!-- MODAL DE ESCÁNER -->
         <div id="scanner-modal" class="fixed inset-0 bg-black/95 z-[60] hidden flex-col items-center justify-start overflow-y-auto backdrop-blur-sm">
             <div class="w-full max-w-md mx-auto my-4 px-4">
                 
+                <!-- Header -->
                 <div class="flex justify-between items-center mb-4 pt-2">
                     <div>
                         <h3 class="font-bold text-white text-lg flex items-center gap-2">
@@ -338,44 +347,103 @@
                     </button>
                 </div>
 
+                <!-- PASO 1: Vista de cámara -->
                 <div id="scanner-step-camera" class="">
+                    <!-- Instrucciones -->
                     <div class="bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700">
                         <p class="text-xs text-slate-300 leading-relaxed">
                             <i class="fas fa-lightbulb text-yellow-400 mr-1"></i>
-                            <strong class="text-white">Nuevo modo:</strong> La IA detecta qué stickers ya están pegados y cuáles faltan.
+                            <strong class="text-white">Nuevo modo:</strong> La IA detecta qué stickers ya están pegados y cuáles faltan. Solo se guardarán los que ya tenés en el álbum físico.
                         </p>
                     </div>
 
+                    <!-- Visor de cámara -->
                     <div class="relative bg-black rounded-2xl overflow-hidden" style="aspect-ratio: 3/4;">
                         <video id="scanner-video" class="w-full h-full object-cover" playsinline autoplay></video>
+                        
+                        <!-- Marco guía -->
                         <div class="absolute inset-3 border-2 border-brand-500/60 rounded-xl pointer-events-none" id="scanner-frame">
+                            <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-brand-500 rounded-tl-lg"></div>
+                            <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-brand-500 rounded-tr-lg"></div>
+                            <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-brand-500 rounded-bl-lg"></div>
+                            <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-brand-500 rounded-br-lg"></div>
                             <div class="scan-line hidden" id="scan-line-anim"></div>
                         </div>
+                        
+                        <!-- Canvas oculto para captura -->
                         <canvas id="scanner-canvas" class="hidden"></canvas>
+                        
+                        <!-- Overlay de procesamiento -->
                         <div id="scanner-processing" class="absolute inset-0 bg-black/85 hidden flex-col items-center justify-center">
-                            <div class="w-16 h-16 rounded-full border-4 border-brand-500/30 border-t-brand-500 animate-spin"></div>
-                            <p class="text-white font-bold text-base mt-4">Analizando con IA...</p>
+                            <div class="relative mb-4">
+                                <div class="w-16 h-16 rounded-full border-4 border-brand-500/30 border-t-brand-500 animate-spin"></div>
+                                <i class="fas fa-magic absolute inset-0 flex items-center justify-center text-brand-500 text-xl" style="display:flex;"></i>
+                            </div>
+                            <p class="text-white font-bold text-base" id="processing-status">Leyendo imagen...</p>
+                            <p class="text-brand-400 text-xs mt-1 font-mono" id="processing-sub">Procesando con IA...</p>
                         </div>
                     </div>
 
+                    <!-- Controles de cámara -->
                     <div class="flex items-center justify-center mt-5 mb-2 space-x-6">
-                        <button onclick="abrirGaleria()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white"><i class="fas fa-image text-lg"></i></button>
-                        <button id="btn-capture" onclick="capturarImagen()" class="w-20 h-20 rounded-full bg-white border-[6px] border-brand-500 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center"><div class="w-14 h-14 rounded-full bg-brand-500"></div></button>
-                        <button id="btn-flash" onclick="toggleFlash()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white"><i class="fas fa-bolt text-lg"></i></button>
+                        <!-- Botón galería -->
+                        <button onclick="abrirGaleria()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white" title="Subir imagen">
+                            <i class="fas fa-image text-lg"></i>
+                        </button>
+                        
+                        <!-- Botón captura principal -->
+                        <button id="btn-capture" onclick="capturarImagen()" 
+                            class="w-20 h-20 rounded-full bg-white border-[6px] border-brand-500 shadow-[0_0_25px_rgba(34,197,94,0.5)] hover:scale-105 active:scale-95 transition-transform flex items-center justify-center">
+                            <div class="w-14 h-14 rounded-full bg-brand-500"></div>
+                        </button>
+
+                        <!-- Botón flash / linterna -->
+                        <button id="btn-flash" onclick="toggleFlash()" class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 transition flex items-center justify-center text-white" title="Flash / Linterna">
+                            <i class="fas fa-bolt text-lg"></i>
+                        </button>
+
                         <input type="file" id="gallery-input" accept="image/*" class="hidden" onchange="procesarImagenGaleria(event)">
                     </div>
+                    <p class="text-center text-xs text-slate-500">Capturar · <i class="fas fa-image"></i> galería · <i class="fas fa-bolt"></i> flash</p>
                 </div>
 
+                <!-- PASO 2: Resultados del análisis -->
                 <div id="scanner-step-results" class="hidden">
-                    <div class="bg-slate-800 rounded-2xl border border-slate-700 p-4">
-                        <img id="result-preview" class="w-full max-h-48 object-cover opacity-80 rounded-xl mb-4">
-                        <div id="scan-results-list" class="max-h-56 overflow-y-auto space-y-1"></div>
+                    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden mb-4">
+                        <!-- Imagen capturada (miniatura) -->
+                        <div class="relative">
+                            <img id="result-preview" src="" alt="Foto escaneada" class="w-full max-h-48 object-cover opacity-80">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-800 to-transparent"></div>
+                            <div class="absolute bottom-3 left-4">
+                                <span id="result-team-badge" class="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Resumen -->
+                        <div class="p-4">
+                            <!-- Leyenda del modo -->
+                            <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
+                                <i class="fas fa-bolt text-yellow-400 mr-1"></i>
+                                <strong>Modo Rápido:</strong> Todas las figuras se marcan como pegadas. Toca los números que te <strong>faltan</strong> para desmarcarlos.
+                            </div>
+                            
+                            <!-- Lista de resultados interactiva -->
+                            <div id="scan-results-list" class="space-y-1"></div>
+                        </div>
                     </div>
-                    <div class="flex gap-3 mt-4">
-                        <button onclick="descartarResultados()" class="flex-1 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold">Nueva foto</button>
-                        <button onclick="confirmarResultados()" id="btn-confirm-scan" class="flex-1 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold">Guardar</button>
+
+                    <!-- Acciones -->
+                    <div class="flex gap-3">
+                        <button onclick="descartarResultados()" class="flex-1 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm transition">
+                            <i class="fas fa-redo mr-2"></i>Nueva foto
+                        </button>
+                        <button onclick="confirmarResultados()" id="btn-confirm-scan" class="flex-1 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm transition">
+                            <i class="fas fa-check mr-2"></i>Guardar cambios
+                        </button>
                     </div>
+                    <p class="text-center text-xs text-slate-500 mt-3">Revisa los resultados antes de confirmar</p>
                 </div>
+
             </div>
         </div>
     </div>
@@ -385,7 +453,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const GEMINI_API_KEY = "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc";
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'fifa-album-2026';
         let db, auth;
         let currentUser = null;
@@ -393,12 +460,21 @@
         let localStickers = {};
         let totalStickersCount = 0;
         let saveTimeout = null;
+
         let pendingScanResults = null;
+
+        // ---- Flash state ----
         let flashOn = false;
         let activeVideoTrack = null;
 
         const MUNDIAL_DATA = [
-            { group: 'Especiales', teams: [ { id: 'FWC', name: 'FIFA World Cup', iso: 'fifa', count: 20, special: true }, { id: 'CC', name: 'Coca-Cola', iso: 'coca', count: 14, special: true } ] },
+            {
+                group: 'Especiales',
+                teams: [
+                    { id: 'FWC', name: 'FIFA World Cup', iso: 'fifa', count: 20, special: true },
+                    { id: 'CC', name: 'Coca-Cola', iso: 'coca', count: 14, special: true }
+                ]
+            },
             { group: 'Grupo A', teams: [{id:'MEX', name:'México', iso:'mx'}, {id:'RSA', name:'Sudáfrica', iso:'za'}, {id:'KOR', name:'Corea del Sur', iso:'kr'}, {id:'CZE', name:'Rep. Checa', iso:'cz'}] },
             { group: 'Grupo B', teams: [{id:'CAN', name:'Canadá', iso:'ca'}, {id:'BIH', name:'Bosnia y Herzegovina', iso:'ba'}, {id:'QAT', name:'Catar', iso:'qa'}, {id:'SUI', name:'Suiza', iso:'ch'}] },
             { group: 'Grupo C', teams: [{id:'BRA', name:'Brasil', iso:'br'}, {id:'MAR', name:'Marruecos', iso:'ma'}, {id:'HAI', name:'Haití', iso:'ht'}, {id:'SCO', name:'Escocia', iso:'gb-sct'}] },
@@ -417,14 +493,33 @@
         const TEAMS_MAP = {};
         MUNDIAL_DATA.forEach(g => g.teams.forEach(t => { TEAMS_MAP[t.id] = t; }));
 
+        // =============================================
+        // FLASH / LINTERNA
+        // =============================================
         window.toggleFlash = async () => {
             const btn = document.getElementById('btn-flash');
-            if (!activeVideoTrack) return;
+            if (!activeVideoTrack) {
+                UI.showModal('Sin cámara', 'Activa la cámara primero antes de usar el flash.');
+                return;
+            }
             const capabilities = activeVideoTrack.getCapabilities ? activeVideoTrack.getCapabilities() : {};
-            if (capabilities.torch) {
+            if (!capabilities.torch) {
+                UI.showModal('Flash no disponible', 'Tu dispositivo no soporta linterna. Se usará flash de pantalla al capturar.');
+                return;
+            }
+            try {
                 flashOn = !flashOn;
                 await activeVideoTrack.applyConstraints({ advanced: [{ torch: flashOn }] });
-                if (flashOn) btn.classList.add('flash-on'); else btn.classList.remove('flash-on');
+                if (flashOn) {
+                    btn.classList.add('flash-on');
+                    btn.title = 'Apagar flash';
+                } else {
+                    btn.classList.remove('flash-on');
+                    btn.title = 'Encender flash';
+                }
+            } catch (err) {
+                console.error('Error al activar flash:', err);
+                UI.showModal('Error', 'No se pudo activar el flash en este dispositivo.');
             }
         };
 
@@ -441,9 +536,21 @@
             showModal: (title, msg, onOk = null, showCancel = false) => {
                 document.getElementById('modal-title').textContent = title;
                 document.getElementById('modal-message').textContent = msg;
-                document.getElementById('custom-modal').classList.remove('hidden');
-                document.getElementById('modal-btn-ok').onclick = () => { document.getElementById('custom-modal').classList.add('hidden'); if(onOk) onOk(); };
-                document.getElementById('modal-btn-cancel').style.display = showCancel ? 'block' : 'none';
+                const modal = document.getElementById('custom-modal');
+                const content = document.getElementById('modal-content');
+                const btnOk = document.getElementById('modal-btn-ok');
+                const btnCancel = document.getElementById('modal-btn-cancel');
+                modal.classList.remove('hidden');
+                setTimeout(() => content.classList.replace('scale-95', 'scale-100'), 10);
+                const close = () => {
+                    content.classList.replace('scale-100', 'scale-95');
+                    setTimeout(() => modal.classList.add('hidden'), 200);
+                    btnOk.onclick = null;
+                    btnCancel.onclick = null;
+                };
+                btnCancel.style.display = showCancel ? 'block' : 'none';
+                btnOk.onclick = () => { close(); if(onOk) onOk(); };
+                btnCancel.onclick = close;
             },
             showScreen: (screenId) => {
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -486,6 +593,7 @@
             MUNDIAL_DATA.forEach(groupData => {
                 const groupSection = document.createElement('div');
                 groupSection.className = 'group-section mb-10';
+                groupSection.dataset.group = groupData.group.toLowerCase();
                 
                 const groupTitle = document.createElement('h2');
                 groupTitle.className = 'text-xl md:text-2xl font-black mb-4 text-white uppercase tracking-widest border-b-2 border-brand-500 inline-block pb-1';
@@ -502,20 +610,25 @@
                     teamCard.dataset.teamName = team.name.toLowerCase();
 
                     let flagUrl = `https://flagcdn.com/w80/${team.iso}.png`;
+                    if (team.id === 'FWC') flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/FIFA_logo_without_slogan.svg/1200px-FIFA_logo_without_slogan.svg.png';
+                    else if (team.id === 'CC') flagUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_logo.svg/1200px-Coca-Cola_logo.svg.png';
                     
                     teamCard.innerHTML = `
                         <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
                             <div class="flex items-center space-x-3">
-                                <img src="${flagUrl}" class="w-10 h-7 object-cover rounded shadow-sm bg-white" draggable="false">
+                                <img src="${flagUrl}" alt="${team.name}" class="w-10 h-7 object-cover rounded shadow-sm bg-white p-${team.special?1:0}" draggable="false">
                                 <div>
                                     <h3 class="font-bold text-lg text-white">${team.name}</h3>
                                     <span class="text-xs font-mono text-brand-500 font-bold bg-brand-900/50 px-2 py-0.5 rounded">${team.id}</span>
                                 </div>
                             </div>
-                            <div class="text-xs font-semibold text-slate-400 team-progress" id="progress-${team.id}">0 / ${team.count || STICKERS_PER_TEAM}</div>
+                            <div class="text-xs font-semibold text-slate-400 team-progress" id="progress-${team.id}">
+                                0 / ${team.count || STICKERS_PER_TEAM}
+                            </div>
                         </div>
                         <div class="grid grid-cols-5 sm:grid-cols-6 gap-2 sm:gap-3 sticker-grid" id="grid-${team.id}"></div>
                     `;
+                    
                     teamsGrid.appendChild(teamCard);
 
                     const stickerGrid = teamCard.querySelector(`#grid-${team.id}`);
@@ -524,32 +637,82 @@
 
                     for (let i = 1; i <= limit; i++) {
                         const fullId = `${team.id}-${i}`;
+                        let label = i;
+                        if (team.id === 'FWC') label = i === 1 ? '00' : (i - 1).toString().padStart(2, '0');
+                        
                         const stickerBtn = document.createElement('button');
-                        stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sticker-missing';
+                        stickerBtn.className = 'sticker-btn relative w-full aspect-square rounded-xl flex items-center justify-center font-bold text-sm sm:text-base sticker-missing';
                         stickerBtn.id = `btn-${fullId}`;
                         stickerBtn.dataset.id = fullId;
-                        stickerBtn.innerHTML = `<span>${i}</span><span class="badge-repeated hidden" id="badge-${fullId}">+0</span>`;
+                        stickerBtn.setAttribute('unselectable', 'on');
+                        stickerBtn.innerHTML = `
+                            <span class="pointer-events-none select-none">${label}</span>
+                            <span class="badge-repeated hidden" id="badge-${fullId}">+0</span>
+                        `;
+                        
                         setupStickerEvents(stickerBtn, fullId);
+                        
                         if (typeof localStickers[fullId] === 'undefined') localStickers[fullId] = 0;
+
                         stickerGrid.appendChild(stickerBtn);
                     }
                 });
+
                 groupSection.appendChild(teamsGrid);
                 container.appendChild(groupSection);
             });
+            
             updateAllUIElements();
         }
 
         function setupStickerEvents(element, id) {
             let pressTimer;
+            let isLongPress = false;
+
+            const handleIncrement = () => {
+                localStickers[id] = (localStickers[id] || 0) + 1;
+                updateStickerUI(id);
+                triggerSave();
+            };
+
+            const handleDecrement = () => {
+                if(localStickers[id] > 0) {
+                    localStickers[id] -= 1;
+                    if(navigator.vibrate) navigator.vibrate(50);
+                    updateStickerUI(id);
+                    triggerSave();
+                }
+            };
+
             element.addEventListener('touchstart', (e) => {
-                pressTimer = setTimeout(() => {
-                    if(localStickers[id] > 0) { localStickers[id]--; updateStickerUI(id); triggerSave(); }
-                }, 500);
+                isLongPress = false;
+                pressTimer = setTimeout(() => { isLongPress = true; handleDecrement(); }, 500);
             }, {passive: true});
+
             element.addEventListener('touchend', (e) => {
                 clearTimeout(pressTimer);
-                if(pressTimer) { localStickers[id] = (localStickers[id] || 0) + 1; updateStickerUI(id); triggerSave(); }
+                if (!isLongPress) { e.preventDefault(); handleIncrement(); }
+            });
+
+            element.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+
+            element.addEventListener('mousedown', (e) => {
+                if(e.button !== 0) return;
+                isLongPress = false;
+                pressTimer = setTimeout(() => { isLongPress = true; handleDecrement(); }, 500);
+            });
+
+            element.addEventListener('mouseup', (e) => {
+                if(e.button !== 0) return;
+                clearTimeout(pressTimer);
+                if (!isLongPress) handleIncrement();
+            });
+            
+            element.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+
+            element.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                handleDecrement();
             });
         }
 
@@ -557,11 +720,27 @@
             const btn = document.getElementById(`btn-${id}`);
             const badge = document.getElementById(`badge-${id}`);
             if(!btn) return;
+
             const count = localStickers[id] || 0;
             btn.classList.remove('sticker-missing', 'sticker-obtained', 'sticker-repeated');
-            if (count === 0) { btn.classList.add('sticker-missing'); badge.classList.add('hidden'); } 
-            else if (count === 1) { btn.classList.add('sticker-obtained'); badge.classList.add('hidden'); }
-            else { btn.classList.add('sticker-repeated'); badge.textContent = `+${count - 1}`; badge.classList.remove('hidden'); }
+            
+            if (count === 0) {
+                btn.classList.add('sticker-missing');
+                badge.classList.add('hidden');
+            } else if (count === 1) {
+                btn.classList.add('sticker-obtained');
+                badge.classList.add('hidden');
+            } else {
+                btn.classList.add('sticker-repeated');
+                badge.textContent = `+${count - 1}`;
+                badge.classList.remove('hidden');
+            }
+
+            if (highlight) {
+                btn.classList.add('sticker-scanned-new');
+                setTimeout(() => btn.classList.remove('sticker-scanned-new'), 2000);
+            }
+            
             const teamId = id.split('-')[0];
             updateTeamProgressUI(teamId);
         }
@@ -570,24 +749,43 @@
             const progressEl = document.getElementById(`progress-${teamId}`);
             if(!progressEl) return;
             let teamTotal = STICKERS_PER_TEAM;
-            for (const group of MUNDIAL_DATA) { const t = group.teams.find(x => x.id === teamId); if (t && t.count) { teamTotal = t.count; break; } }
+            for (const group of MUNDIAL_DATA) {
+                const t = group.teams.find(x => x.id === teamId);
+                if (t && t.count) { teamTotal = t.count; break; }
+            }
             let teamCount = 0;
             for(let i=1; i<=teamTotal; i++) { if((localStickers[`${teamId}-${i}`] || 0) > 0) teamCount++; }
             progressEl.textContent = `${teamCount} / ${teamTotal}`;
+            const card = progressEl.closest('.team-card');
+            if(teamCount === teamTotal) card.classList.add('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
+            else card.classList.remove('ring-2', 'ring-brand-gold', 'bg-brand-900/20');
         }
 
         function updateAllUIElements() {
             Object.keys(localStickers).forEach(id => updateStickerUI(id));
+            const teamsProcessed = new Set();
+            Object.keys(localStickers).forEach(id => {
+                const teamId = id.split('-')[0];
+                if(!teamsProcessed.has(teamId)) { updateTeamProgressUI(teamId); teamsProcessed.add(teamId); }
+            });
         }
 
         function triggerSave() {
             if(!currentUser) return;
             if(saveTimeout) clearTimeout(saveTimeout);
+            const userDisp = document.getElementById('user-display');
+            const originalText = userDisp.textContent;
+            userDisp.innerHTML = `<i class="fas fa-sync fa-spin text-brand-500 mr-1"></i> Guardando...`;
             saveTimeout = setTimeout(async () => {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'album', 'progress');
                     await setDoc(docRef, { stickers: localStickers }, { merge: true });
-                } catch (error) { console.error("Error guardando:", error); }
+                    userDisp.textContent = originalText;
+                } catch (error) {
+                    console.error("Error guardando:", error);
+                    userDisp.textContent = "Error al guardar";
+                    setTimeout(()=> userDisp.textContent = originalText, 2000);
+                }
             }, 1000);
         }
 
@@ -600,7 +798,7 @@
                     const data = docSnap.data();
                     if (data.stickers) { localStickers = { ...localStickers, ...data.stickers }; updateAllUIElements(); }
                 }
-            });
+            }, (error) => console.error("Error en sincronización:", error));
         }
 
         function renderStats() {
@@ -695,6 +893,12 @@
             clearBtn.addEventListener('click', () => { input.value = ''; filterContent(); input.focus(); });
         }
 
+        // =============================================
+        // ESCÁNER LOCAL - MODO: SIMULADO
+        // =============================================
+        let cameraStream = null;
+        let capturedImageBase64 = null;
+
         window.abrirScanner = async () => {
             const modal = document.getElementById('scanner-modal');
             modal.classList.remove('hidden');
@@ -713,9 +917,10 @@
                 });
                 const videoEl = document.getElementById('scanner-video');
                 videoEl.srcObject = cameraStream;
+                // Guardar track para flash
                 activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) {
-                UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara.");
+                UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara. Puedes subir una foto con el botón de galería.");
             }
         };
 
@@ -730,7 +935,9 @@
             pendingScanResults = null;
         };
 
-        window.abrirGaleria = () => { document.getElementById('gallery-input').click(); };
+        window.abrirGaleria = () => {
+            document.getElementById('gallery-input').click();
+        };
 
         window.procesarImagenGaleria = (event) => {
             const file = event.target.files[0];
@@ -748,7 +955,10 @@
             const video = document.getElementById('scanner-video');
             const canvas = document.getElementById('scanner-canvas');
             
-            if (!cameraStream || !video.videoWidth) return;
+            if (!cameraStream || !video.videoWidth) {
+                UI.showModal("Cámara no lista", "Espera a que la cámara esté activa o usa el botón de galería.");
+                return;
+            }
 
             const frame = document.getElementById('scanner-frame');
             frame.classList.add('scanning');
@@ -764,45 +974,114 @@
             setTimeout(() => {
                 frame.classList.remove('scanning');
                 document.getElementById('scan-line-anim').classList.add('hidden');
+                // Apagar flash después de capturar si estaba encendido
                 apagaFlash();
                 analizarImagenIA(base64, dataUrl);
             }, 800);
         };
 
+        // =============================================
+        // ESCÁNER IA - CONEXIÓN REAL A GEMINI (CORREGIDA)
+        // =============================================
+        
+        // Obtenemos apiKey si existe en el entorno, o usamos tu clave directa.
+        const apiKey = ""; 
+        const activeKey = apiKey || "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc";
+        
+        // Si hay un apiKey inyectado del entorno usamos el preview, si no (uso local) usamos 1.5-flash estable
+        const activeModel = apiKey ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
+        
         async function analizarImagenIA(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
+            const statusText = document.getElementById('processing-status');
+            const subText = document.getElementById('processing-sub');
+            
             processing.classList.remove('hidden');
             processing.classList.add('flex');
-            
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        contents: [{ parts: [
-                            { text: "Analiza esta página. Devuelve SOLO este JSON: {\"equipo\": \"ARG\", \"pegados\": [1,2,5]}. No añadas explicaciones." }, 
-                            { inlineData: { mimeType: "image/jpeg", data: base64 } }
-                        ]}] 
-                    })
-                });
+            statusText.textContent = 'Conectando con Google...';
+            subText.textContent = 'Enviando imagen a la IA';
 
-                if (!response.ok) throw new Error("Fallo en la comunicación con Google.");
+            capturedImageBase64 = dataUrl;
+
+            try {
+                const prompt = `Eres un experto analizando páginas del álbum del Mundial.
+Analiza la foto y devuelve un objeto JSON estricto con esta estructura:
+{"equipo": "ARG", "pegados": [1, 2, 5], "vacios": [3, 4, 6]}
+Reglas:
+1. "equipo" es el código de 3 letras del país (ej. ARG, BRA, MEX). Si es Coca-Cola usa CC, si es FIFA usa FWC.
+2. "pegados" es un arreglo con los números (del 1 al 20) que SÍ tienen una figura pegada encima.
+3. "vacios" es un arreglo con los números de las casillas vacías.
+Responde SOLO con el JSON válido.`;
+
+                let response;
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${activeKey}`;
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                role: "user",
+                                parts: [
+                                    { text: prompt },
+                                    { inlineData: { mimeType: "image/jpeg", data: base64 } }
+                                ]
+                            }],
+                            generationConfig: {
+                                responseMimeType: "application/json",
+                                temperature: 0.1
+                            }
+                        })
+                    });
+                } catch (networkErr) {
+                    console.error("Error de Red:", networkErr);
+                    throw new Error("Bloqueo de red detectado. Tu navegador, AdBlock o Antivirus está cortando la conexión a Google.");
+                }
+
+                if (!response.ok) {
+                    let detalle = `Error HTTP ${response.status}`;
+                    try {
+                        const errorRes = await response.json();
+                        detalle = errorRes.error?.message || detalle;
+                    } catch(e) {}
+                    throw new Error(`Rechazo de Google: ${detalle}`);
+                }
 
                 const data = await response.json();
-                const rawText = data.candidates[0].content.parts[0].text;
-                const jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                const result = JSON.parse(jsonText);
                 
-                if (result.equipo && Array.isArray(result.pegados)) {
-                    mostrarResultadosEscaner(TEAMS_MAP[result.equipo], result.pegados, dataUrl);
-                } else {
-                    throw new Error("Formato de respuesta inválido.");
+                if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+                    throw new Error("La IA no pudo procesar la imagen (posible foto borrosa o filtro de seguridad).");
                 }
-            } catch(e) { 
-                alert("Hubo un error: " + e.message); 
+
+                let jsonString = data.candidates[0].content.parts[0].text;
+                jsonString = jsonString.replace(/```json/gi, '').replace(/```/g, '').trim();
+                
+                let result;
+                try {
+                    result = JSON.parse(jsonString);
+                } catch (e) {
+                    throw new Error("La IA no devolvió un formato compatible. Toma la foto nuevamente.");
+                }
+
+                let equipoDetectado = TEAMS_MAP[result.equipo];
+                
+                if (!equipoDetectado) {
+                    for (const id in TEAMS_MAP) {
+                        if (id.includes(result.equipo) || (result.equipo && result.equipo.includes(id))) {
+                            equipoDetectado = TEAMS_MAP[id]; break;
+                        }
+                    }
+                }
+
+                if (!equipoDetectado) throw new Error(`La IA leyó el código "${result.equipo}" pero no existe en tu álbum. Enfoca mejor el nombre del país.`);
+
+                mostrarResultadosEscaner(equipoDetectado, result.pegados || [], dataUrl);
+
+            } catch (err) {
+                console.error("Error en IA:", err);
+                UI.showModal("❌ Error del Escáner", err.message);
             } finally {
+                // ESTA LÍNEA ASEGURA QUE EL MODAL SE CIERRE SIN IMPORTAR SI HAY ERROR O NO
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
             }
@@ -811,55 +1090,142 @@
         function mostrarResultadosEscaner(equipo, pegadosDetectados, imageDataUrl) {
             document.getElementById('scanner-step-camera').classList.add('hidden');
             document.getElementById('scanner-step-results').classList.remove('hidden');
+            if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+
             document.getElementById('result-preview').src = imageDataUrl;
-            document.getElementById('result-team-badge').textContent = equipo ? equipo.name : "Desconocido";
-            pendingScanResults = { equipo: equipo, seleccionados: new Set(pegadosDetectados) };
+            document.getElementById('result-team-badge').innerHTML = `<i class="fas fa-flag mr-1"></i> ${equipo.name} (${equipo.id})`;
+
+            const limit = equipo.count || STICKERS_PER_TEAM;
             
-            const grid = document.getElementById('scan-results-list');
-            grid.innerHTML = '<div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>';
-            const quickGrid = document.getElementById('quick-grid');
-            const limit = equipo ? (equipo.count || STICKERS_PER_TEAM) : 20;
+            pendingScanResults = { equipo: equipo, seleccionados: new Set() };
+
+            // Añadir las que la IA detectó como pegadas
+            pegadosDetectados.forEach(num => {
+                if (num >= 1 && num <= limit) pendingScanResults.seleccionados.add(num);
+            });
+
+            const listContainer = document.getElementById('scan-results-list');
+            listContainer.innerHTML = `
+                <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
+                    <i class="fas fa-robot text-brand-500 mr-1"></i>
+                    <strong>IA completada:</strong> Revisa que la IA haya acertado. Toca los números para corregir.
+                </div>
+                <div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>
+            `;
+
+            const grid = document.getElementById('quick-grid');
             
             for (let i = 1; i <= limit; i++) {
                 const btn = document.createElement('button');
-                btn.className = `py-2 rounded-lg font-bold text-sm transition-all ${pendingScanResults.seleccionados.has(i) ? 'bg-brand-500 text-white' : 'bg-slate-800 text-slate-500'}`;
+                
+                // Si la IA lo detectó, va verde. Si no, va gris.
+                if (pendingScanResults.seleccionados.has(i)) {
+                    btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                } else {
+                    btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 border-2 border-slate-700';
+                }
+                
                 btn.textContent = i;
+
                 btn.onclick = () => {
-                    if(pendingScanResults.seleccionados.has(i)) pendingScanResults.seleccionados.delete(i);
-                    else pendingScanResults.seleccionados.add(i);
-                    btn.classList.toggle('bg-brand-500');
-                    btn.classList.toggle('bg-slate-800');
+                    if (pendingScanResults.seleccionados.has(i)) {
+                        pendingScanResults.seleccionados.delete(i);
+                        btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 border-2 border-slate-700';
+                    } else {
+                        pendingScanResults.seleccionados.add(i);
+                        btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                    }
+                    actualizarBotonConfirmar();
                 };
-                quickGrid.appendChild(btn);
+                grid.appendChild(btn);
             }
+
+            actualizarBotonConfirmar();
         }
 
-        window.confirmarResultados = () => {
-            if (pendingScanResults && pendingScanResults.equipo) {
-                pendingScanResults.seleccionados.forEach(num => {
-                    const fullId = `${pendingScanResults.equipo.id}-${num}`;
-                    localStickers[fullId] = 1;
+        window.descartarResultados = async () => {
+            pendingScanResults = null;
+            document.getElementById('scanner-step-results').classList.add('hidden');
+            document.getElementById('scanner-step-camera').classList.remove('hidden');
+            flashOn = false;
+            activeVideoTrack = null;
+            document.getElementById('btn-flash').classList.remove('flash-on');
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } } 
                 });
-                updateAllUIElements();
-                triggerSave();
-            }
-            cerrarScanner();
+                const videoEl = document.getElementById('scanner-video');
+                videoEl.srcObject = cameraStream;
+                activeVideoTrack = cameraStream.getVideoTracks()[0];
+            } catch (err) { /* galería como alternativa */ }
         };
 
-        window.descartarResultados = () => { cerrarScanner(); };
+        function actualizarBotonConfirmar() {}
 
+        window.confirmarResultados = () => {
+            if (!pendingScanResults || pendingScanResults.seleccionados.size === 0) return;
+            let totalNuevas = 0;
+            const equipo = pendingScanResults.equipo;
+
+            // Guardar solo las que el usuario dejó marcadas en verde
+            pendingScanResults.seleccionados.forEach(num => {
+                const fullId = `${equipo.id}-${num}`;
+                // Solo incrementamos si no la tenía ya (para no registrar "repetidas" por error al escanear)
+                if ((localStickers[fullId] || 0) === 0) {
+                    localStickers[fullId] = 1;
+                    totalNuevas++;
+                    updateStickerUI(fullId, true);
+                }
+            });
+
+            triggerSave();
+            cerrarScanner();
+            
+            if (totalNuevas > 0) {
+                UI.switchTab('view-album');
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full font-bold shadow-xl z-50 fade-in text-sm';
+                toast.innerHTML = `<i class="fas fa-check mr-2"></i> ${totalNuevas} figura${totalNuevas > 1 ? 's' : ''} añadida${totalNuevas > 1 ? 's' : ''} al álbum`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            } else {
+                UI.showModal('Listo', 'Ninguna figura nueva añadida (ya las tenías registradas).');
+            }
+        };
+
+        // =============================================
+        // INICIALIZACIÓN DE APP
+        // =============================================
         async function initApp() {
             try {
-                const firebaseConfig = { apiKey: "AIzaSyDZxMvxXZzfR4Wa7dSRXqLkzpf_mxtV8CQ", authDomain: "album-mundial-2026-339ba.firebaseapp.com", projectId: "album-mundial-2026-339ba", storageBucket: "album-mundial-2026-339ba.firebasestorage.app", messagingSenderId: "7583927837", appId: "1:7583927837:web:e9acb8f62de0c377c640f4" };
+                const MI_FIREBASE_CONFIG = {
+                    apiKey: "AIzaSyDZxMvxXZzfR4Wa7dSRXqLkzpf_mxtV8CQ",
+                    authDomain: "album-mundial-2026-339ba.firebaseapp.com",
+                    projectId: "album-mundial-2026-339ba",
+                    storageBucket: "album-mundial-2026-339ba.firebasestorage.app",
+                    messagingSenderId: "7583927837",
+                    appId: "1:7583927837:web:e9acb8f62de0c377c640f4"
+                };
+
+                let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : MI_FIREBASE_CONFIG;
+
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+
                 setupUIListeners();
                 setupSearch();
+
+                let token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token && !auth.currentUser) {
+                    try { await signInWithCustomToken(auth, token); } catch (e) {}
+                }
+
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         currentUser = user;
-                        let displayId = user.email ? user.email.replace('@album2026.app', '') : `Usuario ${user.uid.substring(0,6)}`;
+                        let displayId = `Usuario ${user.uid.substring(0,6)}`;
+                        if (user.email) displayId = user.email.replace('@album2026.app', '');
                         document.getElementById('user-display').innerHTML = `<i class="fas fa-user-circle mr-1"></i> ${displayId}`;
                         buildAlbumUI();
                         listenToRemoteChanges();
@@ -870,6 +1236,7 @@
                         UI.showScreen('auth-screen');
                     }
                 });
+
             } catch(e) { console.error("Fallo de inicialización:", e); }
         }
 
@@ -887,10 +1254,14 @@
 
             document.getElementById('login-form').onsubmit = async (e) => {
                 e.preventDefault();
-                const username = document.getElementById('login-username').value.trim().toLowerCase();
+                const btn = e.target.querySelector('button');
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 try {
+                    const username = document.getElementById('login-username').value.trim().toLowerCase();
                     await signInWithEmailAndPassword(auth, `${username}@album2026.app`, document.getElementById('login-password').value);
                 } catch (error) { UI.showModal('Error de Inicio', 'Usuario o contraseña incorrectos.'); }
+                finally { btn.innerHTML = origHtml; }
             };
 
             document.getElementById('register-form').onsubmit = async (e) => {
@@ -898,10 +1269,14 @@
                 const p1 = document.getElementById('reg-password').value;
                 const p2 = document.getElementById('reg-confirm').value;
                 if(p1 !== p2) { UI.showModal('Atención', 'Las contraseñas no coinciden.'); return; }
-                const username = document.getElementById('reg-username').value.trim().toLowerCase();
+                const btn = e.target.querySelector('button');
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 try {
+                    const username = document.getElementById('reg-username').value.trim().toLowerCase();
                     await createUserWithEmailAndPassword(auth, `${username}@album2026.app`, p1);
-                } catch (error) { UI.showModal('Error al Registrar', 'El usuario ya existe.'); }
+                } catch (error) { UI.showModal('Error al Registrar', 'El usuario ya existe o la contraseña es muy débil (mínimo 6 caracteres).'); }
+                finally { btn.innerHTML = origHtml; }
             };
 
             document.getElementById('btn-anonymous').onclick = async () => {
