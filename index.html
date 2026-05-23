@@ -504,6 +504,7 @@
             }
             const capabilities = activeVideoTrack.getCapabilities ? activeVideoTrack.getCapabilities() : {};
             if (!capabilities.torch) {
+                // Dispositivo no soporta torch → simular flash con pantalla blanca brevemente
                 UI.showModal('Flash no disponible', 'Tu dispositivo no soporta linterna. Se usará flash de pantalla al capturar.');
                 return;
             }
@@ -523,6 +524,7 @@
             }
         };
 
+        // Apagar flash al cerrar sin fallar
         function apagaFlash() {
             if (activeVideoTrack && flashOn) {
                 try { activeVideoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e) {}
@@ -984,12 +986,7 @@
         // ESCÁNER IA - CONEXIÓN REAL A GEMINI (CORREGIDA)
         // =============================================
         
-        // Obtenemos apiKey si existe en el entorno, o usamos tu clave directa.
-        const apiKey = ""; 
-        const activeKey = apiKey || "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc";
-        
-        // Si hay un apiKey inyectado del entorno usamos el preview, si no (uso local) usamos 1.5-flash estable
-        const activeModel = apiKey ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
+        const GEMINI_API_KEY = "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc"; 
         
         async function analizarImagenIA(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
@@ -1004,47 +1001,35 @@
             capturedImageBase64 = dataUrl;
 
             try {
-                const prompt = `Eres un experto analizando páginas del álbum del Mundial.
-Analiza la foto y devuelve un objeto JSON estricto con esta estructura:
-{"equipo": "ARG", "pegados": [1, 2, 5], "vacios": [3, 4, 6]}
-Reglas:
-1. "equipo" es el código de 3 letras del país (ej. ARG, BRA, MEX). Si es Coca-Cola usa CC, si es FIFA usa FWC.
-2. "pegados" es un arreglo con los números (del 1 al 20) que SÍ tienen una figura pegada encima.
-3. "vacios" es un arreglo con los números de las casillas vacías.
-Responde SOLO con el JSON válido.`;
-
-                let response;
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${activeKey}`;
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                role: "user",
-                                parts: [
-                                    { text: prompt },
-                                    { inlineData: { mimeType: "image/jpeg", data: base64 } }
-                                ]
-                            }],
-                            generationConfig: {
-                                responseMimeType: "application/json",
-                                temperature: 0.1
-                            }
-                        })
-                    });
-                } catch (networkErr) {
-                    console.error("Error de Red:", networkErr);
-                    throw new Error("Bloqueo de red detectado. Tu navegador, AdBlock o Antivirus está cortando la conexión a Google.");
-                }
+                // AQUÍ ESTÁ EL ARREGLO AL ERROR: Usamos 'gemini-1.5-flash-latest' que es el soportado por tu API Key
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            role: "user",
+                            parts: [
+                                { text: "Analiza esta página. Devuelve SOLO este JSON: {\"equipo\": \"ARG\", \"pegados\": [1, 2, 5]}. No añadas explicaciones ni formato markdown." },
+                                { inlineData: { mimeType: "image/jpeg", data: base64 } }
+                            ]
+                        }],
+                        generationConfig: {
+                            temperature: 0.1
+                        }
+                    })
+                });
 
                 if (!response.ok) {
-                    let detalle = `Error HTTP ${response.status}`;
+                    let errMessage = "Fallo en la comunicación con Google.";
                     try {
-                        const errorRes = await response.json();
-                        detalle = errorRes.error?.message || detalle;
+                        const errData = await response.json();
+                        if (errData.error && errData.error.message) {
+                            errMessage = "Rechazo de Google: " + errData.error.message;
+                        }
                     } catch(e) {}
-                    throw new Error(`Rechazo de Google: ${detalle}`);
+                    throw new Error(errMessage);
                 }
 
                 const data = await response.json();
@@ -1079,9 +1064,9 @@ Responde SOLO con el JSON válido.`;
 
             } catch (err) {
                 console.error("Error en IA:", err);
-                UI.showModal("❌ Error del Escáner", err.message);
+                UI.showModal("Error del Escáner", err.message);
             } finally {
-                // ESTA LÍNEA ASEGURA QUE EL MODAL SE CIERRE SIN IMPORTAR SI HAY ERROR O NO
+                // ESTA LÍNEA ASEGURA QUE EL MODAL DE CARGA SE CIERRE SIEMPRE (AÚN SI HAY ERROR)
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
             }
@@ -1135,12 +1120,9 @@ Responde SOLO con el JSON válido.`;
                         pendingScanResults.seleccionados.add(i);
                         btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
                     }
-                    actualizarBotonConfirmar();
                 };
                 grid.appendChild(btn);
             }
-
-            actualizarBotonConfirmar();
         }
 
         window.descartarResultados = async () => {
@@ -1159,8 +1141,6 @@ Responde SOLO con el JSON válido.`;
                 activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) { /* galería como alternativa */ }
         };
-
-        function actualizarBotonConfirmar() {}
 
         window.confirmarResultados = () => {
             if (!pendingScanResults || pendingScanResults.seleccionados.size === 0) return;
