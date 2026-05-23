@@ -140,7 +140,6 @@
             box-shadow: inset 0 0 20px rgba(34, 197, 94, 0.2);
         }
 
-        /* Flash button activo */
         #btn-flash.flash-on {
             background: #fbbf24 !important;
             color: #0f172a !important;
@@ -353,7 +352,7 @@
                     <div class="bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700">
                         <p class="text-xs text-slate-300 leading-relaxed">
                             <i class="fas fa-lightbulb text-yellow-400 mr-1"></i>
-                            <strong class="text-white">Nuevo modo:</strong> La IA detecta qué stickers ya están pegados y cuáles faltan. Solo se guardarán los que ya tenés en el álbum físico.
+                            <strong class="text-white">Consejo:</strong> Asegúrate de que el <strong>nombre del equipo</strong> sea visible y haya buena iluminación. La IA detecta qué stickers están pegados y cuáles faltan.
                         </p>
                     </div>
 
@@ -423,8 +422,8 @@
                         <div class="p-4">
                             <!-- Leyenda del modo -->
                             <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
-                                <i class="fas fa-bolt text-yellow-400 mr-1"></i>
-                                <strong>Modo Rápido:</strong> Todas las figuras se marcan como pegadas. Toca los números que te <strong>faltan</strong> para desmarcarlos.
+                                <i class="fas fa-robot text-brand-500 mr-1"></i>
+                                <strong>Resultado de la IA:</strong> Verde = pegada, Gris = falta. Toca para corregir errores.
                             </div>
                             
                             <!-- Lista de resultados interactiva -->
@@ -504,7 +503,6 @@
             }
             const capabilities = activeVideoTrack.getCapabilities ? activeVideoTrack.getCapabilities() : {};
             if (!capabilities.torch) {
-                // Dispositivo no soporta torch → simular flash con pantalla blanca brevemente
                 UI.showModal('Flash no disponible', 'Tu dispositivo no soporta linterna. Se usará flash de pantalla al capturar.');
                 return;
             }
@@ -524,7 +522,6 @@
             }
         };
 
-        // Apagar flash al cerrar sin fallar
         function apagaFlash() {
             if (activeVideoTrack && flashOn) {
                 try { activeVideoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e) {}
@@ -896,7 +893,7 @@
         }
 
         // =============================================
-        // ESCÁNER LOCAL - MODO: SIMULADO
+        // ESCÁNER - VARIABLES DE ESTADO
         // =============================================
         let cameraStream = null;
         let capturedImageBase64 = null;
@@ -919,7 +916,6 @@
                 });
                 const videoEl = document.getElementById('scanner-video');
                 videoEl.srcObject = cameraStream;
-                // Guardar track para flash
                 activeVideoTrack = cameraStream.getVideoTracks()[0];
             } catch (err) {
                 UI.showModal("Sin acceso a cámara", "No se pudo acceder a la cámara. Puedes subir una foto con el botón de galería.");
@@ -976,34 +972,54 @@
             setTimeout(() => {
                 frame.classList.remove('scanning');
                 document.getElementById('scan-line-anim').classList.add('hidden');
-                // Apagar flash después de capturar si estaba encendido
                 apagaFlash();
                 analizarImagenIA(base64, dataUrl);
             }, 800);
         };
 
         // =============================================
-        // ESCÁNER IA - CONEXIÓN REAL A GEMINI (CORREGIDA)
+        // ESCÁNER IA - VERSIÓN MEJORADA CON GEMINI
         // =============================================
-        
-        const GEMINI_API_KEY = "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc"; 
-        
+        const GEMINI_API_KEY = "AIzaSyBa7bEQ9DIN6luKEuEWPmAO-Fr2Y-95kBc";
+
         async function analizarImagenIA(base64, dataUrl) {
             const processing = document.getElementById('scanner-processing');
             const statusText = document.getElementById('processing-status');
             const subText = document.getElementById('processing-sub');
-            
+
             processing.classList.remove('hidden');
             processing.classList.add('flex');
             statusText.textContent = 'Conectando con Google...';
             subText.textContent = 'Enviando imagen a la IA';
-
             capturedImageBase64 = dataUrl;
 
+            // Lista completa de códigos válidos para dar contexto a Gemini
+            const codigosValidos = Object.keys(TEAMS_MAP).join(', ');
+
+            const prompt = `Eres un asistente experto en álbumes de cromos/stickers del Mundial FIFA 2026 de Panini.
+Esta imagen muestra UNA página del álbum físico con los stickers de UN equipo.
+Cada sticker tiene un número del 1 al 20 (o más). Los stickers YA PEGADOS muestran la imagen/foto del jugador o escudo. Los stickers FALTANTES se ven como recuadros vacíos, grises, blancos o con un contorno punteado sin imagen interior.
+
+Tu tarea:
+1. Identificar el código de 2-3 letras del equipo visible en el encabezado o título de la página. Códigos válidos: ${codigosValidos}
+2. Listar ÚNICAMENTE los números de stickers que YA ESTÁN PEGADOS (con imagen visible adentro).
+
+Responde ÚNICAMENTE con este JSON sin ningún otro texto ni markdown:
+{"equipo": "COD_EQUIPO", "pegados": [1, 3, 5, 7]}
+
+Reglas estrictas:
+- Si no puedes identificar el equipo con certeza, usa "equipo": null.
+- Si la imagen no muestra claramente un álbum de stickers, usa "equipo": null y "pegados": [].
+- No incluyas números de stickers que estén vacíos o sin imagen.
+- Solo devuelve el JSON, nada más.`;
+
             try {
-                // AQUÍ ESTÁ EL ARREGLO AL ERROR: Usamos 'gemini-1.5-flash-latest' que es el soportado por tu API Key
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-                
+                // Usamos gemini-1.5-flash (versión fija, sin -latest para mayor estabilidad)
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+                statusText.textContent = 'Analizando imagen...';
+                subText.textContent = 'La IA está leyendo los stickers';
+
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1011,62 +1027,87 @@
                         contents: [{
                             role: "user",
                             parts: [
-                                { text: "Analiza esta página. Devuelve SOLO este JSON: {\"equipo\": \"ARG\", \"pegados\": [1, 2, 5]}. No añadas explicaciones ni formato markdown." },
+                                { text: prompt },
                                 { inlineData: { mimeType: "image/jpeg", data: base64 } }
                             ]
                         }],
                         generationConfig: {
-                            temperature: 0.1
+                            temperature: 0.05,
+                            maxOutputTokens: 256
                         }
                     })
                 });
 
                 if (!response.ok) {
-                    let errMessage = "Fallo en la comunicación con Google.";
-                    try {
-                        const errData = await response.json();
-                        if (errData.error && errData.error.message) {
-                            errMessage = "Rechazo de Google: " + errData.error.message;
-                        }
-                    } catch(e) {}
-                    throw new Error(errMessage);
+                    const errData = await response.json().catch(() => ({}));
+                    const msg = errData?.error?.message || `HTTP ${response.status}`;
+                    throw new Error(`Error de Google API: ${msg}`);
                 }
 
                 const data = await response.json();
-                
-                if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-                    throw new Error("La IA no pudo procesar la imagen (posible foto borrosa o filtro de seguridad).");
+
+                // Verificar bloqueo por safety filters
+                const candidate = data.candidates?.[0];
+                if (!candidate) {
+                    const reason = data.promptFeedback?.blockReason;
+                    throw new Error(reason
+                        ? `Imagen bloqueada por filtros de seguridad (${reason}). Intenta con otra foto.`
+                        : "La IA no devolvió respuesta. La foto puede estar muy borrosa o inclinada.");
                 }
 
-                let jsonString = data.candidates[0].content.parts[0].text;
-                jsonString = jsonString.replace(/```json/gi, '').replace(/```/g, '').trim();
-                
+                if (candidate.finishReason === 'SAFETY') {
+                    throw new Error("La imagen fue bloqueada por filtros de seguridad. Intenta con mejor iluminación.");
+                }
+
+                let rawText = candidate.content?.parts?.[0]?.text || '';
+
+                // Extraer JSON de forma robusta aunque haya texto extra alrededor
+                const jsonMatch = rawText.match(/\{[\s\S]*?"equipo"[\s\S]*?"pegados"[\s\S]*?\}/);
+                if (!jsonMatch) {
+                    console.error("Respuesta cruda de Gemini:", rawText);
+                    throw new Error("La IA no pudo identificar el álbum. Asegúrate de que la foto sea clara, bien iluminada y muestre el nombre del equipo.");
+                }
+
                 let result;
                 try {
-                    result = JSON.parse(jsonString);
+                    result = JSON.parse(jsonMatch[0]);
                 } catch (e) {
-                    throw new Error("La IA no devolvió un formato compatible. Toma la foto nuevamente.");
+                    throw new Error("Formato de respuesta inválido. Toma la foto nuevamente con mejor luz.");
                 }
 
-                let equipoDetectado = TEAMS_MAP[result.equipo];
-                
+                if (!result.equipo) {
+                    throw new Error("No se pudo identificar el equipo. Asegúrate de que el nombre o código del equipo sea visible en la foto.");
+                }
+
+                // Buscar equipo: primero exacto, luego parcial
+                let equipoDetectado = TEAMS_MAP[result.equipo.toUpperCase()];
                 if (!equipoDetectado) {
+                    const search = result.equipo.toUpperCase();
                     for (const id in TEAMS_MAP) {
-                        if (id.includes(result.equipo) || (result.equipo && result.equipo.includes(id))) {
-                            equipoDetectado = TEAMS_MAP[id]; break;
+                        if (id.includes(search) || search.includes(id)) {
+                            equipoDetectado = TEAMS_MAP[id];
+                            break;
                         }
                     }
                 }
 
-                if (!equipoDetectado) throw new Error(`La IA leyó el código "${result.equipo}" pero no existe en tu álbum. Enfoca mejor el nombre del país.`);
+                if (!equipoDetectado) {
+                    throw new Error(`Equipo "${result.equipo}" no encontrado en el álbum. Códigos válidos: ${codigosValidos}`);
+                }
 
-                mostrarResultadosEscaner(equipoDetectado, result.pegados || [], dataUrl);
+                // Validar y filtrar números al rango del equipo
+                const limit = equipoDetectado.count || STICKERS_PER_TEAM;
+                const pegadosValidos = (result.pegados || [])
+                    .map(n => parseInt(n))
+                    .filter(n => !isNaN(n) && n >= 1 && n <= limit);
+
+                mostrarResultadosEscaner(equipoDetectado, pegadosValidos, dataUrl);
 
             } catch (err) {
                 console.error("Error en IA:", err);
                 UI.showModal("Error del Escáner", err.message);
             } finally {
-                // ESTA LÍNEA ASEGURA QUE EL MODAL DE CARGA SE CIERRE SIEMPRE (AÚN SI HAY ERROR)
+                // Siempre ocultar el overlay de procesamiento
                 processing.classList.add('hidden');
                 processing.classList.remove('flex');
             }
@@ -1084,7 +1125,6 @@
             
             pendingScanResults = { equipo: equipo, seleccionados: new Set() };
 
-            // Añadir las que la IA detectó como pegadas
             pegadosDetectados.forEach(num => {
                 if (num >= 1 && num <= limit) pendingScanResults.seleccionados.add(num);
             });
@@ -1093,7 +1133,7 @@
             listContainer.innerHTML = `
                 <div class="bg-slate-900/80 rounded-xl p-2 mb-3 border border-slate-600 text-xs text-slate-400 text-center">
                     <i class="fas fa-robot text-brand-500 mr-1"></i>
-                    <strong>IA completada:</strong> Revisa que la IA haya acertado. Toca los números para corregir.
+                    <strong>IA completada:</strong> Verde = pegada · Gris = falta. Toca para corregir errores.
                 </div>
                 <div id="quick-grid" class="grid grid-cols-5 gap-2 mt-2"></div>
             `;
@@ -1103,7 +1143,6 @@
             for (let i = 1; i <= limit; i++) {
                 const btn = document.createElement('button');
                 
-                // Si la IA lo detectó, va verde. Si no, va gris.
                 if (pendingScanResults.seleccionados.has(i)) {
                     btn.className = 'py-2 rounded-lg font-bold text-sm transition-all duration-200 bg-brand-500 text-white border-2 border-brand-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
                 } else {
@@ -1143,14 +1182,15 @@
         };
 
         window.confirmarResultados = () => {
-            if (!pendingScanResults || pendingScanResults.seleccionados.size === 0) return;
+            if (!pendingScanResults || pendingScanResults.seleccionados.size === 0) {
+                UI.showModal('Sin cambios', 'No hay stickers seleccionados para guardar.');
+                return;
+            }
             let totalNuevas = 0;
             const equipo = pendingScanResults.equipo;
 
-            // Guardar solo las que el usuario dejó marcadas en verde
             pendingScanResults.seleccionados.forEach(num => {
                 const fullId = `${equipo.id}-${num}`;
-                // Solo incrementamos si no la tenía ya (para no registrar "repetidas" por error al escanear)
                 if ((localStickers[fullId] || 0) === 0) {
                     localStickers[fullId] = 1;
                     totalNuevas++;
